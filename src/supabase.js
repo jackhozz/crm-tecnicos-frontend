@@ -199,6 +199,16 @@ export const supabase = new Proxy(realSupabase, {
                 return Promise.resolve({ data: null, error: null })
               }
             }
+          },
+          async delete() {
+            return {
+              eq(field, val) {
+                const list = mockStorage.get(table)
+                const updatedList = list.filter(item => item[field] !== val)
+                mockStorage.set(table, updatedList)
+                return Promise.resolve({ data: null, error: null })
+              }
+            }
           }
         }
       }

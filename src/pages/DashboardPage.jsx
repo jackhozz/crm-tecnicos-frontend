@@ -31,44 +31,98 @@ export default function DashboardPage({ setCurrent }) {
   const [profile, setProfile] = useState(null)
   const [todoList, setTodoList] = useState([])
 
-  useEffect(() => {
-    const savedTodos = localStorage.getItem('mantenizapp_todo_list')
-    if (savedTodos) {
-      setTodoList(JSON.parse(savedTodos))
-    } else {
-      const initialTodos = [
-        { id: 't1', text: 'Comprar refrigerante R410a para el Chiller de Las Mercedes', completed: false, priority: 'Alta' },
-        { id: 't2', text: 'Llamar a Clinica Metropolitana para coordinar visita', completed: true, priority: 'Media' },
-        { id: 't3', text: 'Revisar herramientas del taller y multímetro', completed: false, priority: 'Baja' }
-      ]
-      setTodoList(initialTodos)
-      localStorage.setItem('mantenizapp_todo_list', JSON.stringify(initialTodos))
-    }
-  }, [])
+  const loadTodos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+      
+      if (error) throw error
 
-  const handleAddTodo = (text, priority) => {
+      if (data && data.length > 0) {
+        // Ordenar por fecha de creación descendente
+        const sorted = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        setTodoList(sorted)
+      } else {
+        // Sembrar recordatorios iniciales en la base de datos para dar la bienvenida al técnico
+        const initialTodos = [
+          { user_id: user.id, text: 'Comprar refrigerante R410a para el Chiller de Las Mercedes', completed: false, priority: 'Alta' },
+          { user_id: user.id, text: 'Llamar a Clinica Metropolitana para coordinar visita', completed: true, priority: 'Media' },
+          { user_id: user.id, text: 'Revisar herramientas del taller y multímetro', completed: false, priority: 'Baja' }
+        ]
+        const { error: insertErr } = await supabase
+          .from('todos')
+          .insert(initialTodos)
+          
+        if (!insertErr) {
+          const { data: refetched } = await supabase
+            .from('todos')
+            .select('*')
+          if (refetched) {
+            const sortedRefetched = [...refetched].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            setTodoList(sortedRefetched)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando tareas:', err)
+    }
+  }
+
+  const handleAddTodo = async (text, priority) => {
     if (!text.trim()) return
-    const newTodo = {
-      id: 'todo_' + Date.now(),
-      text: text.trim(),
-      completed: false,
-      priority: priority || 'Normal'
+    try {
+      const newTodo = {
+        user_id: user.id,
+        text: text.trim(),
+        completed: false,
+        priority: priority || 'Media'
+      }
+      const { error } = await supabase
+        .from('todos')
+        .insert(newTodo)
+      
+      if (error) {
+        console.error('Error al insertar tarea:', error)
+      }
+      await loadTodos()
+    } catch (err) {
+      console.error('Error añadiendo tarea:', err)
     }
-    const updated = [newTodo, ...todoList]
-    setTodoList(updated)
-    localStorage.setItem('mantenizapp_todo_list', JSON.stringify(updated))
   }
 
-  const handleToggleTodo = (id) => {
-    const updated = todoList.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
-    setTodoList(updated)
-    localStorage.setItem('mantenizapp_todo_list', JSON.stringify(updated))
+  const handleToggleTodo = async (id) => {
+    const todo = todoList.find(t => t.id === id)
+    if (!todo) return
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ completed: !todo.completed })
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error al actualizar tarea:', error)
+      }
+      await loadTodos()
+    } catch (err) {
+      console.error('Error al alternar tarea:', err)
+    }
   }
 
-  const handleDeleteTodo = (id) => {
-    const updated = todoList.filter(t => t.id !== id)
-    setTodoList(updated)
-    localStorage.setItem('mantenizapp_todo_list', JSON.stringify(updated))
+  const handleDeleteTodo = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error al eliminar tarea:', error)
+      }
+      await loadTodos()
+    } catch (err) {
+      console.error('Error al eliminar tarea:', err)
+    }
   }
 
   useEffect(() => {
@@ -232,6 +286,7 @@ export default function DashboardPage({ setCurrent }) {
         .eq('id', user.id)
         .maybeSingle()
       setProfile(perfilData || null)
+      await loadTodos()
     } catch (err) {
       console.error('Error cargando datos del dashboard:', err)
     } finally {
