@@ -6,7 +6,7 @@ import autoTable from 'jspdf-autotable'
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
-const emptyItem = () => ({ id: Date.now(), descripcion: '', precio: '' })
+const emptyItem = () => ({ id: Date.now(), descripcion: '', cantidad: 1, precio: '' })
 
 const defaultForm = () => ({
   clienteId: '',
@@ -29,6 +29,7 @@ export default function PresupuestosPage() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'new'
+  const [editingId, setEditingId] = useState(null)
 
   useEffect(() => {
     fetchPresupuestos()
@@ -80,7 +81,31 @@ export default function PresupuestosPage() {
     items: f.items.map(i => i.id === id ? { ...i, [k]: v } : i)
   }))
 
-  const total = form.items.reduce((s, i) => s + (parseFloat(i.precio) || 0), 0)
+  const handleEdit = (p) => {
+    const loadedItems = typeof p.items === 'string' ? JSON.parse(p.items) : p.items
+    const itemsWithCantidad = loadedItems.map(it => ({
+      id: it.id || Date.now() + Math.random(),
+      descripcion: it.descripcion || '',
+      cantidad: it.cantidad || 1,
+      precio: it.precio || ''
+    }))
+
+    setForm({
+      clienteId: p.cliente_id || '',
+      nombreEmisor: p.nombre_emisor || '',
+      nombreReceptor: p.nombre_receptor || '',
+      fecha: p.fecha || '',
+      titulo: p.titulo || '',
+      descripcionObra: p.descripcion_obra || '',
+      items: itemsWithCantidad
+    })
+    setEditingId(p.id)
+    setView('new')
+    setMsg(null)
+    setAiPrompt('')
+  }
+
+  const total = form.items.reduce((s, i) => s + ((parseFloat(i.cantidad) || 1) * (parseFloat(i.precio) || 0)), 0)
 
   const generarConIA = async () => {
     if (!aiPrompt.trim()) return
@@ -96,7 +121,7 @@ export default function PresupuestosPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `Eres un técnico profesional. Redacta una descripción técnica formal para un presupuesto basada en: "${aiPrompt}". Solo el texto.` }] }]
+            contents: [{ parts: [{ text: `Eres un técnico profesional de servicio. Redacta una descripción técnica formal y concisa para un presupuesto basada en: "${aiPrompt}". Evita hacer listas, viñetas o enumeraciones. Escribe la respuesta únicamente en un párrafo técnico fluido, directo y profesional.` }] }]
           })
         }
       )
@@ -124,7 +149,8 @@ export default function PresupuestosPage() {
       return
     }
     setSaving(true)
-    const { error } = await supabase.from('presupuestos').insert({
+    
+    const payload = {
       cliente_id: form.clienteId || null,
       nombre_emisor: form.nombreEmisor,
       nombre_receptor: form.nombreReceptor,
@@ -134,14 +160,30 @@ export default function PresupuestosPage() {
       items: form.items,
       total,
       user_id: user.id,
-    })
+    }
+
+    let error;
+    if (editingId) {
+      const { error: err } = await supabase
+        .from('presupuestos')
+        .update(payload)
+        .eq('id', editingId)
+      error = err
+    } else {
+      const { error: err } = await supabase
+        .from('presupuestos')
+        .insert(payload)
+      error = err
+    }
+
     if (error) {
       setMsg({ type: 'error', text: error.message })
     } else {
-      setMsg({ type: 'success', text: 'Presupuesto guardado.' })
+      setMsg({ type: 'success', text: editingId ? 'Presupuesto actualizado.' : 'Presupuesto guardado.' })
       fetchPresupuestos()
       setView('list')
       setForm(defaultForm())
+      setEditingId(null)
     }
     setSaving(false)
   }
@@ -261,9 +303,19 @@ export default function PresupuestosPage() {
     // Tabla de items
     autoTable(doc, {
       startY: afterDesc + 8,
-      head: [['Pos.', 'Descripción de Actividades / Suministros', 'Monto']],
-      body: items.map((it, i) => [i + 1, it.descripcion, `$${parseFloat(it.precio || 0).toFixed(2)}`]),
-      foot: [['', 'TOTAL PRESUPUESTO (USD)', `$${parseFloat(data.total || 0).toFixed(2)}`]],
+      head: [['Pos.', 'Descripción de Actividades / Suministros', 'Cant.', 'P. Unit (USD)', 'Total (USD)']],
+      body: items.map((it, i) => {
+        const cant = parseFloat(it.cantidad || 1)
+        const unit = parseFloat(it.precio || 0)
+        return [
+          i + 1,
+          it.descripcion,
+          cant,
+          `$${unit.toFixed(2)}`,
+          `$${(cant * unit).toFixed(2)}`
+        ]
+      }),
+      foot: [['', '', '', 'TOTAL PRESUPUESTO (USD)', `$${parseFloat(data.total || 0).toFixed(2)}`]],
       headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
       footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 9 }, // White/Light gray theme
       alternateRowStyles: { fillColor: [250, 250, 250] },
@@ -303,10 +355,10 @@ export default function PresupuestosPage() {
       <div>
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h1 className="page-title">Nuevo Presupuesto</h1>
-            <p className="page-sub">Completa los datos y guarda</p>
+            <h1 className="page-title">{editingId ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}</h1>
+            <p className="page-sub">{editingId ? 'Modifica los datos del presupuesto' : 'Completa los datos y guarda'}</p>
           </div>
-          <button className="btn btn-secondary" onClick={() => { setView('list'); setMsg(null) }}>← Volver</button>
+          <button className="btn btn-secondary" onClick={() => { setView('list'); setMsg(null); setEditingId(null); setForm(defaultForm()); }}>← Volver</button>
         </div>
 
         {msg && <div className={msg.type === 'error' ? 'auth-error' : 'auth-success'} style={{ marginBottom: 20 }}>{msg.text}</div>}
@@ -404,15 +456,17 @@ export default function PresupuestosPage() {
           <table className="items-table">
             <thead>
               <tr>
-                <th style={{ width: '60%' }}>Descripción</th>
-                <th>Precio (USD)</th>
-                <th></th>
+                <th style={{ width: '50%' }}>Descripción</th>
+                <th style={{ width: '20%' }}>Cantidad</th>
+                <th style={{ width: '20%' }}>Precio Unit. (USD)</th>
+                <th style={{ width: '10%' }}></th>
               </tr>
             </thead>
             <tbody>
               {form.items.map(item => (
                 <tr key={item.id}>
                   <td><input placeholder="Descripción del ítem..." value={item.descripcion} onChange={e => updateItem(item.id, 'descripcion', e.target.value)} /></td>
+                  <td><input type="number" placeholder="1" value={item.cantidad || ''} onChange={e => updateItem(item.id, 'cantidad', e.target.value)} style={{ maxWidth: 80 }} /></td>
                   <td><input type="number" placeholder="0.00" value={item.precio} onChange={e => updateItem(item.id, 'precio', e.target.value)} style={{ maxWidth: 120 }} /></td>
                   <td>
                     {form.items.length > 1 && (
@@ -451,7 +505,7 @@ export default function PresupuestosPage() {
           <h1 className="page-title">Presupuestos</h1>
           <p className="page-sub">{presupuestos.length} documentos guardados</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setView('new'); setMsg(null) }}>+ Nuevo Presupuesto</button>
+        <button className="btn btn-primary" onClick={() => { setView('new'); setMsg(null); setEditingId(null); setForm(defaultForm()); setAiPrompt(''); }}>+ Nuevo Presupuesto</button>
       </div>
 
       {loading ? (
@@ -473,12 +527,15 @@ export default function PresupuestosPage() {
                   {p.fecha} · Para: {p.nombre_receptor} {p.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ textAlign: 'right' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ textAlign: 'right', marginRight: 8 }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent)' }}>${parseFloat(p.total || 0).toFixed(2)}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total</div>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => descargarPDF(p)}>
+                <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(p)} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  ✏️ Editar
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={() => descargarPDF(p)} style={{ padding: '8px 12px', fontSize: '12px' }}>
                   ↓ PDF
                 </button>
               </div>
