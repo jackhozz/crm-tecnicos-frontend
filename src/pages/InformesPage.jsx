@@ -34,6 +34,7 @@ export default function InformesPage() {
   const [view, setView] = useState('list')
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
+  const [editingId, setEditingId] = useState(null)
 
   useEffect(() => {
     fetchInformes()
@@ -194,7 +195,8 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
       return
     }
     setSaving(true)
-    const { error } = await supabase.from('informes').insert({
+
+    const payload = {
       cliente_id: form.clienteId || null,
       equipo_id: form.equipoId || null,
       cliente: form.cliente,
@@ -209,17 +211,83 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
       observaciones: form.observaciones,
       tecnico: form.tecnico,
       user_id: user.id,
-    })
+    }
+
+    let error;
+    if (editingId) {
+      const { error: err } = await supabase
+        .from('informes')
+        .update(payload)
+        .eq('id', editingId)
+      error = err
+    } else {
+      const { error: err } = await supabase
+        .from('informes')
+        .insert(payload)
+      error = err
+    }
+
     if (error) {
       setMsg({ type: 'error', text: error.message })
     } else {
-      setMsg({ type: 'success', text: 'Informe guardado.' })
+      setMsg({ type: 'success', text: editingId ? 'Informe actualizado.' : 'Informe guardado.' })
       fetchInformes()
       setView('list')
       setForm(defaultForm())
+      setEditingId(null)
       setEquipos([])
     }
     setSaving(false)
+  }
+
+  const handleEdit = async (inf) => {
+    setForm({
+      clienteId: inf.cliente_id || '',
+      equipoId: inf.equipo_id || '',
+      cliente: inf.cliente || '',
+      fecha: inf.fecha || '',
+      equipo: inf.equipo || '',
+      marca: inf.marca || '',
+      modelo: inf.modelo || '',
+      serial: inf.serial || '',
+      diagnostico: inf.diagnostico || '',
+      trabajosRealizados: inf.trabajos_realizados || '',
+      materialesUsados: inf.materiales_usados || '',
+      observaciones: inf.observaciones || '',
+      tecnico: inf.tecnico || '',
+    })
+    if (inf.cliente_id) {
+      await fetchEquiposPorCliente(inf.cliente_id)
+    }
+    setEditingId(inf.id)
+    setView('new')
+    setMsg(null)
+    setAiPrompt('')
+  }
+
+  const handleUseAsTemplate = async (inf) => {
+    setForm({
+      clienteId: inf.cliente_id || '',
+      equipoId: inf.equipo_id || '',
+      cliente: inf.cliente || '',
+      fecha: new Date().toISOString().split('T')[0],
+      equipo: inf.equipo || '',
+      marca: inf.marca || '',
+      modelo: inf.modelo || '',
+      serial: inf.serial || '',
+      diagnostico: inf.diagnostico || '',
+      trabajosRealizados: inf.trabajos_realizados || '',
+      materialesUsados: inf.materiales_usados || '',
+      observaciones: inf.observaciones || '',
+      tecnico: inf.tecnico || '',
+    })
+    if (inf.cliente_id) {
+      await fetchEquiposPorCliente(inf.cliente_id)
+    }
+    setEditingId(null)
+    setView('new')
+    setMsg({ type: 'success', text: 'Cargado como plantilla. Modifica y guarda para crear un nuevo informe.' })
+    setAiPrompt('')
   }
 
   const descargarPDF = async (data) => {
@@ -424,10 +492,10 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
       <div>
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h1 className="page-title">Nuevo Informe Técnico</h1>
-            <p className="page-sub">Documenta el servicio realizado</p>
+            <h1 className="page-title">{editingId ? 'Editar Informe Técnico' : 'Nuevo Informe Técnico'}</h1>
+            <p className="page-sub">{editingId ? 'Modifica los datos del informe' : 'Documenta el servicio realizado'}</p>
           </div>
-          <button className="btn btn-secondary" onClick={() => { setView('list'); setMsg(null) }}>← Volver</button>
+          <button className="btn btn-secondary" onClick={() => { setView('list'); setMsg(null); setEditingId(null); setForm(defaultForm()); setEquipos([]); }}>← Volver</button>
         </div>
 
         {msg && <div className={msg.type === 'error' ? 'auth-error' : 'auth-success'} style={{ marginBottom: 20 }}>{msg.text}</div>}
@@ -619,9 +687,17 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
                   {inf.diagnostico?.substring(0, 100)}...
                 </div>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => descargarPDF(inf)}>
-                ↓ PDF
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(inf)} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  ✏️ Editar
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => handleUseAsTemplate(inf)} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  📋 Duplicar
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={() => descargarPDF(inf)} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  ↓ PDF
+                </button>
+              </div>
             </div>
           ))}
         </div>

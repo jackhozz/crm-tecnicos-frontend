@@ -105,6 +105,30 @@ export default function PresupuestosPage() {
     setAiPrompt('')
   }
 
+  const handleUseAsTemplate = (p) => {
+    const loadedItems = typeof p.items === 'string' ? JSON.parse(p.items) : p.items
+    const itemsWithCantidad = loadedItems.map(it => ({
+      id: Date.now() + Math.random(),
+      descripcion: it.descripcion || '',
+      cantidad: it.cantidad || 1,
+      precio: it.precio || ''
+    }))
+
+    setForm({
+      clienteId: p.cliente_id || '',
+      nombreEmisor: p.nombre_emisor || '',
+      nombreReceptor: p.nombre_receptor || '',
+      fecha: new Date().toISOString().split('T')[0],
+      titulo: `${p.titulo} (Copia)` || '',
+      descripcionObra: p.descripcion_obra || '',
+      items: itemsWithCantidad
+    })
+    setEditingId(null)
+    setView('new')
+    setMsg({ type: 'success', text: 'Cargado como plantilla. Modifica y guarda para crear un nuevo presupuesto.' })
+    setAiPrompt('')
+  }
+
   const total = form.items.reduce((s, i) => s + ((parseFloat(i.cantidad) || 1) * (parseFloat(i.precio) || 0)), 0)
 
   const generarConIA = async () => {
@@ -534,6 +558,9 @@ export default function PresupuestosPage() {
                 </div>
                 <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(p)} style={{ padding: '8px 12px', fontSize: '12px' }}>
                   ✏️ Editar
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => handleUseAsTemplate(p)} style={{ padding: '8px 12px', fontSize: '12px' }}>
+                  📋 Duplicar
                 </button>
                 <button className="btn btn-primary btn-sm" onClick={() => descargarPDF(p)} style={{ padding: '8px 12px', fontSize: '12px' }}>
                   ↓ PDF
