@@ -39,30 +39,12 @@ export default function DashboardPage({ setCurrent }) {
       
       if (error) throw error
 
-      if (data && data.length > 0) {
+      if (data) {
         // Ordenar por fecha de creación descendente
         const sorted = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         setTodoList(sorted)
       } else {
-        // Sembrar recordatorios iniciales en la base de datos para dar la bienvenida al técnico
-        const initialTodos = [
-          { user_id: user.id, text: 'Comprar refrigerante R410a para el Chiller de Las Mercedes', completed: false, priority: 'Alta' },
-          { user_id: user.id, text: 'Llamar a Clinica Metropolitana para coordinar visita', completed: true, priority: 'Media' },
-          { user_id: user.id, text: 'Revisar herramientas del taller y multímetro', completed: false, priority: 'Baja' }
-        ]
-        const { error: insertErr } = await supabase
-          .from('todos')
-          .insert(initialTodos)
-          
-        if (!insertErr) {
-          const { data: refetched } = await supabase
-            .from('todos')
-            .select('*')
-          if (refetched) {
-            const sortedRefetched = [...refetched].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            setTodoList(sortedRefetched)
-          }
-        }
+        setTodoList([])
       }
     } catch (err) {
       console.error('Error cargando tareas:', err)

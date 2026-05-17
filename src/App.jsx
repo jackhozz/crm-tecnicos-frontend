@@ -276,55 +276,6 @@ function PerfilPage() {
                 📖 Iniciar
               </button>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Notificación de Prueba</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Probar alertas nativas de fondo</div>
-              </div>
-              <button 
-                className="btn btn-secondary" 
-                onClick={async () => {
-                  if (!('Notification' in window)) {
-                    alert('Este navegador no soporta notificaciones de escritorio.')
-                    return
-                  }
-                  
-                  let permission = Notification.permission
-                  if (permission === 'default') {
-                    permission = await Notification.requestPermission()
-                  }
-                  
-                  if (permission === 'granted') {
-                    if ('serviceWorker' in navigator) {
-                      try {
-                        const reg = await navigator.serviceWorker.ready
-                        await reg.showNotification('🚀 Prueba de Mantenizapp', {
-                          body: '¡Excelente! Las notificaciones nativas de segundo plano están funcionando perfectamente en tu dispositivo.',
-                          icon: '/logo.png',
-                          badge: '/logo.png',
-                          vibrate: [200, 100, 200]
-                        })
-                      } catch (err) {
-                        new Notification('🚀 Prueba de Mantenizapp', {
-                          body: '¡Excelente! Las notificaciones nativas de primer plano están funcionando.',
-                          icon: '/logo.png'
-                        })
-                      }
-                    } else {
-                      new Notification('🚀 Prueba de Mantenizapp', {
-                        body: '¡Excelente! Las notificaciones nativas de primer plano están funcionando.',
-                        icon: '/logo.png'
-                      })
-                    }
-                  } else {
-                    alert('Permiso de notificaciones denegado. Por favor, actívalas en la barra de direcciones de tu navegador.')
-                  }
-                }} 
-                style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                🔔 Probar
-              </button>
-            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Plataforma Profesional</div>
@@ -600,36 +551,47 @@ function ProfileCompletionOverlay({ user, onComplete }) {
   )
 }
 
-function WalkthroughTour({ onClose }) {
+function WalkthroughTour({ onClose, setCurrent }) {
   const [step, setStep] = React.useState(0)
 
   const steps = [
     {
       title: 'El Dashboard (Métricas y Control)',
-      desc: 'Bienvenido al panel principal de Mantenizapp. Aquí verás de un vistazo el resumen diario de tus clientes atendidos, equipos en monitoreo y los servicios programados para el día de hoy con sus respectivas horas.',
-      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400&auto=format&fit=crop'
+      desc: 'Bienvenido al panel principal de Mantenizapp. Aquí verás de un vistazo el resumen diario de tus clientes atendidos, equipos en monitoreo y tus recordatorios de tareas de taller sincronizados en tiempo real en la nube de Supabase.',
+      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400&auto=format&fit=crop',
+      target: 'dashboard'
     },
     {
       title: 'Clientes y Directorio Técnico',
       desc: 'En esta sección podrás registrar la base de datos de tus clientes y vincularles sus aires acondicionados, cavas o sistemas industriales. Podrás definir su marca, modelo, serial y cuándo les corresponde su próximo mantenimiento preventivo.',
-      image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=400&auto=format&fit=crop'
+      image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=400&auto=format&fit=crop',
+      target: 'clientes'
     },
     {
       title: 'Agenda y Calendario Inteligente',
       desc: 'Planifica y organiza tus visitas técnicas reales. Mantenizapp diferencia de forma única e inteligente la fecha programada de tu visita física de la fecha de recomendación técnica del próximo mantenimiento preventivo automático (ej: cada 3 meses).',
-      image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=400&auto=format&fit=crop'
+      image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=400&auto=format&fit=crop',
+      target: 'agenda'
     },
     {
       title: 'Informes Técnicos con Inteligencia Artificial',
       desc: 'Redacta diagnósticos, listas de repuestos e informes de servicio ultra-profesionales. Ahorra tiempo ingresando ideas cortas y dejando que la IA de Gemini autocomplete todos los campos de redacción formal con un solo clic.',
-      image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=400&auto=format&fit=crop'
+      image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=400&auto=format&fit=crop',
+      target: 'informes'
     },
     {
       title: 'Presupuestos y Plantillas (Duplicar)',
-      desc: 'Genera cotizaciones en PDF, edita precios e ítems al instante, y usa presupuestos previos como plantillas rápidas presionando "Duplicar". Modifica solo lo que necesites y guarda para crear un nuevo presupuesto en segundos.',
-      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=400&auto=format&fit=crop'
+      desc: 'Genera cotizaciones en PDF, edita precios e ítems al instante, y usa presupuestos previos como plantillas rápidas presionando \"Duplicar\". Modifica solo lo que necesites y guarda para crear un nuevo presupuesto en segundos.',
+      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=400&auto=format&fit=crop',
+      target: 'presupuestos'
     }
   ]
+
+  React.useEffect(() => {
+    if (setCurrent && steps[step]) {
+      setCurrent(steps[step].target)
+    }
+  }, [step])
 
   const currentStep = steps[step]
 
@@ -1062,7 +1024,7 @@ function AppLayout() {
         })}
       </nav>
       {showWalkthrough && (
-        <WalkthroughTour onClose={() => setShowWalkthrough(false)} />
+        <WalkthroughTour onClose={() => setShowWalkthrough(false)} setCurrent={setCurrent} />
       )}
     </div>
   )
