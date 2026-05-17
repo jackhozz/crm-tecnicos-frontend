@@ -29,6 +29,47 @@ export default function DashboardPage({ setCurrent }) {
   const [savingQuick, setSavingQuick] = useState(false)
   const [quickMsg, setQuickMsg] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [todoList, setTodoList] = useState([])
+
+  useEffect(() => {
+    const savedTodos = localStorage.getItem('mantenizapp_todo_list')
+    if (savedTodos) {
+      setTodoList(JSON.parse(savedTodos))
+    } else {
+      const initialTodos = [
+        { id: 't1', text: 'Comprar refrigerante R410a para el Chiller de Las Mercedes', completed: false, priority: 'Alta' },
+        { id: 't2', text: 'Llamar a Clinica Metropolitana para coordinar visita', completed: true, priority: 'Media' },
+        { id: 't3', text: 'Revisar herramientas del taller y multímetro', completed: false, priority: 'Baja' }
+      ]
+      setTodoList(initialTodos)
+      localStorage.setItem('mantenizapp_todo_list', JSON.stringify(initialTodos))
+    }
+  }, [])
+
+  const handleAddTodo = (text, priority) => {
+    if (!text.trim()) return
+    const newTodo = {
+      id: 'todo_' + Date.now(),
+      text: text.trim(),
+      completed: false,
+      priority: priority || 'Normal'
+    }
+    const updated = [newTodo, ...todoList]
+    setTodoList(updated)
+    localStorage.setItem('mantenizapp_todo_list', JSON.stringify(updated))
+  }
+
+  const handleToggleTodo = (id) => {
+    const updated = todoList.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+    setTodoList(updated)
+    localStorage.setItem('mantenizapp_todo_list', JSON.stringify(updated))
+  }
+
+  const handleDeleteTodo = (id) => {
+    const updated = todoList.filter(t => t.id !== id)
+    setTodoList(updated)
+    localStorage.setItem('mantenizapp_todo_list', JSON.stringify(updated))
+  }
 
   useEffect(() => {
     if (user) {
@@ -384,6 +425,119 @@ export default function DashboardPage({ setCurrent }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECCIÓN NUEVA: LISTA DE TAREAS / TODO LIST */}
+      <div className="card" style={{ marginBottom: '28px', padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontWeight: '850', fontSize: '16px', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Recordatorios y Tareas Diarias</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500', marginTop: '2px' }}>Organiza tus pendientes personales de taller y compras de insumos</div>
+          </div>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => setShowQuickModal(true)}
+            style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent)' }}
+          >
+            <span>+ Tarea</span>
+          </button>
+        </div>
+
+        {todoList.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px 0', fontSize: '13px', fontWeight: 500 }}>
+            No tienes tareas pendientes. ¡Buen trabajo!
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {todoList.map(todo => {
+              const priorityColors = {
+                Alta: { text: '#ef4444', bg: '#fee2e2', border: '#fecaca' },
+                Media: { text: '#d97706', bg: '#fef3c7', border: '#fcd34d' },
+                Baja: { text: '#3b82f6', bg: '#dbeafe', border: '#bfdbfe' }
+              }
+              const colors = priorityColors[todo.priority] || priorityColors.Media
+
+              return (
+                <div 
+                  key={todo.id} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    padding: '12px 16px', 
+                    background: 'var(--bg-base)', 
+                    borderRadius: '12px', 
+                    border: '1px solid var(--border)',
+                    opacity: todo.completed ? 0.6 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={todo.completed} 
+                      onChange={() => handleToggleTodo(todo.id)}
+                      style={{ 
+                        width: '18px', 
+                        height: '18px', 
+                        accentColor: 'var(--accent)', 
+                        cursor: 'pointer',
+                        borderRadius: '4px'
+                      }} 
+                    />
+                    <span 
+                      style={{ 
+                        fontSize: '13.5px', 
+                        color: 'var(--text-primary)', 
+                        fontWeight: '500',
+                        textDecoration: todo.completed ? 'line-through' : 'none',
+                        wordBreak: 'break-word',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {todo.text}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '12px' }}>
+                    <span 
+                      style={{ 
+                        fontSize: '10px', 
+                        fontWeight: '800', 
+                        padding: '2px 8px', 
+                        borderRadius: '99px',
+                        background: colors.bg,
+                        color: colors.text,
+                        border: `1px solid ${colors.border}`,
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      {todo.priority}
+                    </span>
+                    <button 
+                      onClick={() => handleDeleteTodo(todo.id)}
+                      style={{ 
+                        background: 'none', 
+                        border: 'none', 
+                        color: 'var(--danger)', 
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        transition: 'background 0.2s'
+                      }}
+                      title="Eliminar tarea"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -762,6 +916,57 @@ export default function DashboardPage({ setCurrent }) {
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE NUEVA TAREA PENDIENTE (TODO LIST) */}
+      {showQuickModal && (
+        <div className="modal-overlay" onClick={() => setShowQuickModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 850, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Nueva Tarea Pendiente</h3>
+              <button onClick={() => setShowQuickModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              const text = e.target.todoText.value
+              const priority = e.target.todoPriority.value
+              handleAddTodo(text, priority)
+              setShowQuickModal(false)
+              e.target.reset()
+            }}>
+              <div className="form-group">
+                <label className="form-label">Descripción de la Tarea *</label>
+                <textarea 
+                  name="todoText"
+                  className="form-textarea" 
+                  placeholder="Ej: Comprar bombillo piloto de panel o contactar con taller..." 
+                  required
+                  rows={3}
+                  style={{ minHeight: '100px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 24 }}>
+                <label className="form-label">Prioridad</label>
+                <select name="todoPriority" className="form-select">
+                  <option value="Alta">Alta</option>
+                  <option value="Media">Media</option>
+                  <option value="Baja">Baja</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, fontWeight: 'bold' }}>
+                  Añadir Tarea
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowQuickModal(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
