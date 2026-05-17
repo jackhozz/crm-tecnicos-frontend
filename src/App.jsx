@@ -148,6 +148,20 @@ function PerfilPage() {
   const [saving, setSaving] = React.useState(false)
   const [msg, setMsg] = React.useState(null)
 
+  // Configuración interactiva del intervalo de días de recordatorio
+  const [reminderDays, setReminderDays] = React.useState(() => {
+    return parseInt(localStorage.getItem('mantenizapp_reminder_days') || '7', 10)
+  })
+
+  const handleReminderDaysChange = (e) => {
+    const val = parseInt(e.target.value, 10)
+    setReminderDays(val)
+    localStorage.setItem('mantenizapp_reminder_days', val.toString())
+    if (window.scanNotifications) {
+      window.scanNotifications()
+    }
+  }
+
   React.useEffect(() => {
     if (user) {
       fetchProfile()
@@ -275,6 +289,24 @@ function PerfilPage() {
               >
                 📖 Iniciar
               </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Recordatorios Preventivos</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Anticipación para alertar servicios</div>
+              </div>
+              <select 
+                value={reminderDays} 
+                onChange={handleReminderDaysChange} 
+                className="form-input" 
+                style={{ width: '115px', padding: '6px 8px', fontSize: '12px', height: 'auto', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                <option value="1">1 día antes</option>
+                <option value="3">3 días antes</option>
+                <option value="7">7 días antes</option>
+                <option value="15">15 días antes</option>
+                <option value="30">30 días antes</option>
+              </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -695,6 +727,9 @@ function AppLayout() {
   const [selectedClientForDetails, setSelectedClientForDetails] = React.useState(null)
   const [selectedEquipmentIdForDetails, setSelectedEquipmentIdForDetails] = React.useState(null)
 
+  // Ref para evitar duplicar alertas nativas ya mostradas en esta sesión del navegador
+  const shownNotifsRef = React.useRef(new Set())
+
   const navigateToClientDetail = (client, equipmentId = null) => {
     setSelectedClientForDetails(client)
     setSelectedEquipmentIdForDetails(equipmentId)
@@ -798,7 +833,8 @@ function AppLayout() {
         const generatedNotifs = []
         const todayStr = new Date().toISOString().split('T')[0]
 
-        // A. Escanear equipos para mantenimiento preventivo próximo (próximos 7 días)
+        // A. Escanear equipos para mantenimiento preventivo próximo (según días configurados)
+        const savedDays = parseInt(localStorage.getItem('mantenizapp_reminder_days') || '7', 10)
         if (listEquipos && !eqErr) {
           listEquipos.forEach(eq => {
             if (eq.proximo_mantenimiento) {
@@ -806,7 +842,7 @@ function AppLayout() {
               const diffTime = pDate - new Date()
               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-              if (diffDays >= -30 && diffDays <= 7) {
+              if (diffDays >= -30 && diffDays <= savedDays) {
                 generatedNotifs.push({
                   id: `eq-${eq.id}-${eq.proximo_mantenimiento}`,
                   title: '⚠️ Mantenimiento Próximo',
@@ -891,20 +927,27 @@ function AppLayout() {
 
         setNotifications(generatedNotifs)
 
-        // Disparar Notificación Push nativa del navegador para el dispositivo activo
+        // Disparar Notificación Push nativa del navegador de forma controlada (máx. 1 vez por ID de alerta en la sesión)
         const activeUnread = generatedNotifs.filter(n => !n.read)
-        if (activeUnread.length > 0 && 'Notification' in window && Notification.permission === 'granted') {
-          const criticalNotif = activeUnread[0]
-          new Notification(criticalNotif.title, {
-            body: criticalNotif.desc,
-            icon: '/logo.png'
-          })
-        }
+        activeUnread.forEach(n => {
+          if (!shownNotifsRef.current.has(n.id)) {
+            shownNotifsRef.current.add(n.id)
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(n.title, {
+                body: n.desc,
+                icon: '/logo.png'
+              })
+            }
+          }
+        })
 
       } catch (err) {
         console.error('Error scanning notifications:', err)
       }
     }
+
+    // Compartir scanNotifications de forma global para que el selector de Perfil pueda forzar la actualización inmediata
+    window.scanNotifications = scanNotifications
 
     scanNotifications()
     const interval = setInterval(scanNotifications, 60000)
