@@ -830,3 +830,153 @@ body,
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* RESPONSIVE CALENDAR GRID & CELLS */
+.agenda-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(320px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.calendar-cell {
+  height: 72px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.calendar-cell:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-soft);
+}
+
+.day-titles-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  gap: 6px;
+}
+
+.day-title-short {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .agenda-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .day-title-long {
+    display: none !important;
+  }
+  .day-title-short {
+    display: block !important;
+  }
+  .day-titles-grid {
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+  .calendar-cell {
+    height: 58px;
+    padding: 4px;
+  }
+}
+
+/* RESPONSIVE BUDGET ITEMS TABLE */
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.items-table th {
+  text-align: left;
+  padding: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border);
+}
+
+.items-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .items-table, 
+  .items-table thead, 
+  .items-table tbody, 
+  .items-table tr, 
+  .items-table th, 
+  .items-table td {
+    display: block !important;
+    width: 100% !important;
+  }
+  
+  .items-table thead {
+    display: none !important;
+  }
+  
+  .items-table tr {
+    background: var(--bg-base);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+  }
+  
+  .items-table td {
+    border: none !important;
+    padding: 6px 0 !important;
+  }
+  
+  .items-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  
+  .items-table td input {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* PREMIUM SPACIOUS TYPING AREAS */
+.form-textarea {
+  min-height: 140px;
+  line-height: 1.6;
+  font-size: 14.5px;
+  padding: 14px 18px;
+  resize: vertical;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}

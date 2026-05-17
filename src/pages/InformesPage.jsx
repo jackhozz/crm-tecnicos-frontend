@@ -139,6 +139,55 @@ export default function InformesPage() {
     }
   }
 
+  const autocompletarTodoConIA = async () => {
+    if (!aiPrompt.trim()) return
+    if (!GEMINI_KEY) {
+      setField('diagnostico', `[IA no configurada] Diagnóstico técnico sobre: ${aiPrompt}`)
+      setField('trabajosRealizados', `[IA no configurada] Trabajos realizados sobre: ${aiPrompt}`)
+      setField('materialesUsados', 'Fusible 15A, Cinta aislante, Termoencogible')
+      setField('observaciones', 'Se recomienda realizar seguimiento preventivo en 30 días.')
+      return
+    }
+    setAiLoading(true)
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Eres un técnico profesional especializado. Basándote en esta descripción: "${aiPrompt}", genera un JSON con las siguientes claves (evita enumeraciones o listas en los valores, escribe solo en párrafos fluidos, concisos y profesionales):
+- "diagnostico": Diagnóstico técnico formal de la falla o estado.
+- "trabajos": Descripción formal de los trabajos correctivos o preventivos realizados.
+- "materiales": Repuestos o consumibles que típicamente se usarían en este caso (en un texto corto y conciso sin viñetas).
+- "observaciones": Recomendaciones breves de uso o próximo mantenimiento.
+
+Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de código markdown, sin explicaciones ni rodeos. La respuesta debe iniciar con { y terminar con }.` }] }]
+          })
+        }
+      )
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error?.message || 'Error en Google Gemini API')
+
+      let text = json.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      // Limpiar posibles bloques de código markdown de Gemini
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+
+      const data = JSON.parse(text)
+      setField('diagnostico', data.diagnostico || '')
+      setField('trabajosRealizados', data.trabajos || '')
+      setField('materialesUsados', data.materiales || '')
+      setField('observaciones', data.observaciones || '')
+      setMsg({ type: 'success', text: '¡Todos los campos del informe han sido autocompletados con éxito!' })
+    } catch (err) {
+      console.error('Error al autocompletar con IA:', err)
+      setMsg({ type: 'error', text: 'IA Autocompletar: ' + err.message + '. Intenta con un prompt más descriptivo.' })
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   const guardar = async () => {
     if (!form.cliente || !form.equipo || !form.diagnostico || !form.trabajosRealizados) {
       setMsg({ type: 'error', text: 'Completa: cliente, equipo, diagnóstico y trabajos realizados.' })
@@ -469,31 +518,42 @@ export default function InformesPage() {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch', flexWrap: 'wrap' }}>
             <textarea 
               className="form-textarea" 
-              placeholder="Ej: El equipo parpadea luz roja en el display y no enciende compresor, o realicé reemplazo del contactor de potencia y limpieza general..." 
+              placeholder="Ej: Mantenimiento preventivo a aire split de 12k btu, tenía suciedad y capacitor bajo..." 
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
               rows={2}
-              style={{ flex: 1, minWidth: '240px', minHeight: '68px' }}
+              style={{ flex: 1, minWidth: '240px', minHeight: '80px' }}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '160px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '180px' }}>
               <button 
                 type="button"
                 className="btn btn-primary" 
-                onClick={() => generarConIA('diagnostico')}
+                onClick={autocompletarTodoConIA}
                 disabled={aiLoading || !aiPrompt.trim()}
-                style={{ fontSize: '11px', padding: '8px 12px', height: '100%', flex: 1, margin: 0 }}
+                style={{ fontSize: '12px', padding: '10px 14px', flex: 1, margin: 0, background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', border: 'none', color: '#fff', fontWeight: 800 }}
               >
-                {aiLoading ? 'Generando...' : '💡 Crear Diagnóstico'}
+                {aiLoading ? 'Generando...' : '✨ Llenar Todo con IA'}
               </button>
-              <button 
-                type="button"
-                className="btn btn-secondary" 
-                onClick={() => generarConIA('trabajos')}
-                disabled={aiLoading || !aiPrompt.trim()}
-                style={{ fontSize: '11px', padding: '8px 12px', height: '100%', flex: 1, margin: 0 }}
-              >
-                {aiLoading ? 'Generando...' : '🛠️ Crear Trabajos'}
-              </button>
+              <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  onClick={() => generarConIA('diagnostico')}
+                  disabled={aiLoading || !aiPrompt.trim()}
+                  style={{ fontSize: '10px', padding: '6px 8px', flex: 1, margin: 0 }}
+                >
+                  💡 Diagnóstico
+                </button>
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  onClick={() => generarConIA('trabajos')}
+                  disabled={aiLoading || !aiPrompt.trim()}
+                  style={{ fontSize: '10px', padding: '6px 8px', flex: 1, margin: 0 }}
+                >
+                  🛠️ Trabajos
+                </button>
+              </div>
             </div>
           </div>
           {!GEMINI_KEY && (

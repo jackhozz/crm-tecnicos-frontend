@@ -335,9 +335,7 @@ export default function AgendaPage() {
           <span className="spinner" />
         </div>
       ) : viewMode === 'calendar' ? (
-        
-        /* 📅 CALENDAR MONTH GRID VIEW */
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)', gap: '20px', alignItems: 'start' }}>
+        <div className="agenda-grid">
           
           {/* Calendar Plate */}
           <div className="premium-card" style={{ padding: '20px' }}>
@@ -365,14 +363,14 @@ export default function AgendaPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               
               {/* Day Titles */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', marginBottom: '8px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                <div>LUN</div>
-                <div>MAR</div>
-                <div>MIÉ</div>
-                <div>JUE</div>
-                <div>VIE</div>
-                <div>SÁB</div>
-                <div>DOM</div>
+              <div className="day-titles-grid">
+                <div><span className="day-title-long">LUN</span><span className="day-title-short">L</span></div>
+                <div><span className="day-title-long">MAR</span><span className="day-title-short">M</span></div>
+                <div><span className="day-title-long">MIÉ</span><span className="day-title-short">M</span></div>
+                <div><span className="day-title-long">JUE</span><span className="day-title-short">J</span></div>
+                <div><span className="day-title-long">VIE</span><span className="day-title-short">V</span></div>
+                <div><span className="day-title-long">SÁB</span><span className="day-title-short">S</span></div>
+                <div><span className="day-title-long">DOM</span><span className="day-title-short">D</span></div>
               </div>
 
               {/* Rows */}
@@ -383,7 +381,8 @@ export default function AgendaPage() {
                       return (
                         <div 
                           key={cell.id} 
-                          style={{ height: '70px', background: 'var(--bg-base)', opacity: 0.25, borderRadius: '6px' }}
+                          className="calendar-cell"
+                          style={{ opacity: 0.15, cursor: 'default', background: 'var(--bg-base)' }}
                         />
                       )
                     }
@@ -396,24 +395,7 @@ export default function AgendaPage() {
                       <div
                         key={cell.dateStr}
                         onClick={() => setSelectedDayStr(cell.dateStr)}
-                        style={{
-                          height: '70px',
-                          background: isSelected ? 'var(--bg-base)' : 'var(--bg-card)',
-                          border: isSelected 
-                            ? '2px solid var(--accent)' 
-                            : isToday 
-                              ? '1px solid var(--accent)' 
-                              : '1px solid var(--border)',
-                          borderRadius: '6px',
-                          padding: '6px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.05)' : 'none'
-                        }}
+                        className={`calendar-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
                       >
                         {/* Day number */}
                         <span style={{ 
@@ -442,7 +424,7 @@ export default function AgendaPage() {
                                 whiteSpace: 'nowrap'
                               }}
                             >
-                              {cell.dayEquipos.length === 1 ? cell.dayEquipos[0].nombre : `${cell.dayEquipos.length} mant.`}
+                              {cell.dayEquipos.length === 1 ? cell.dayEquipos[0].nombre : `${cell.dayEquipos.length} m.`}
                             </div>
                           </div>
                         )}

@@ -25,16 +25,18 @@ export default function AuthPage() {
     setSuccess('')
     setLoading(true)
 
+    const cleanedEmail = email.trim()
+
     try {
       if (tab === 'login') {
-        const { error } = await signIn(email, password)
+        const { error } = await signIn(cleanedEmail, password)
         if (error) throw error
       } else {
         if (!nombre.trim()) throw new Error('El nombre es obligatorio')
         if (!apellido.trim()) throw new Error('El apellido es obligatorio')
         if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres')
         
-        const { data, error } = await signUp(email, password)
+        const { data, error } = await signUp(cleanedEmail, password)
         if (error) throw error
         
         // Save initial profile details if signup succeeded
@@ -48,7 +50,7 @@ export default function AuthPage() {
               documento_identidad: documentoIdentidad.trim(),
               grado_profesion: gradoProfesion.trim(),
               telefono: telefono.trim(),
-              correo_profesional: email.trim(),
+              correo_profesional: cleanedEmail,
               competencias: competencias.trim()
             })
           if (profileError) {

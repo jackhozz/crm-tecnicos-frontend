@@ -465,12 +465,12 @@ export default function PresupuestosPage() {
             <tbody>
               {form.items.map(item => (
                 <tr key={item.id}>
-                  <td><input placeholder="Descripción del ítem..." value={item.descripcion} onChange={e => updateItem(item.id, 'descripcion', e.target.value)} /></td>
-                  <td><input type="number" placeholder="1" value={item.cantidad || ''} onChange={e => updateItem(item.id, 'cantidad', e.target.value)} style={{ maxWidth: 80 }} /></td>
-                  <td><input type="number" placeholder="0.00" value={item.precio} onChange={e => updateItem(item.id, 'precio', e.target.value)} style={{ maxWidth: 120 }} /></td>
-                  <td>
+                  <td data-label="Descripción"><input placeholder="Descripción del ítem..." value={item.descripcion} onChange={e => updateItem(item.id, 'descripcion', e.target.value)} style={{ width: '100%' }} /></td>
+                  <td data-label="Cantidad"><input type="number" placeholder="1" value={item.cantidad || ''} onChange={e => updateItem(item.id, 'cantidad', e.target.value)} style={{ maxWidth: 80, width: '100%' }} /></td>
+                  <td data-label="Precio Unit. (USD)"><input type="number" placeholder="0.00" value={item.precio} onChange={e => updateItem(item.id, 'precio', e.target.value)} style={{ maxWidth: 120, width: '100%' }} /></td>
+                  <td style={{ textAlign: 'right' }}>
                     {form.items.length > 1 && (
-                      <button className="btn btn-danger btn-sm" onClick={() => removeItem(item.id)}>✕</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => removeItem(item.id)} style={{ padding: '6px 10px', fontSize: '11px' }}>✕ Quitar</button>
                     )}
                   </td>
                 </tr>
