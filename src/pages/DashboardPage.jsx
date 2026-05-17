@@ -164,6 +164,16 @@ export default function DashboardPage({ setCurrent }) {
         setSemanaList([])
         setAtrasados([])
         setAllAgendas([])
+        
+        // Cargar perfil y tareas pendientes de forma síncrona incluso si no hay clientes registrados
+        const { data: perfilData } = await supabase
+          .from('perfiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle()
+        setProfile(perfilData || null)
+        await loadTodos()
+        
         setLoading(false)
         return
       }
