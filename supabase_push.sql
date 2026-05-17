@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 -- Habilitar Seguridad (RLS)
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
+-- Eliminar política previa si existe para evitar errores de ejecución repetida
+DROP POLICY IF EXISTS "push_subscriptions_own" ON push_subscriptions;
+
 -- Política de RLS para que cada técnico controle únicamente sus suscripciones
 CREATE POLICY "push_subscriptions_own" ON push_subscriptions
   FOR ALL USING (auth.uid() = user_id);
