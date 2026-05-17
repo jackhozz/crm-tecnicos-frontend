@@ -43,8 +43,8 @@ export default function ClientesPage() {
 
   const [clientForm, setClientForm] = useState(defaultClientForm())
   const [equipoForm, setEquipoForm] = useState(defaultEquipoForm())
-  // Especificaciones dinámicas: array de { key, value }
-  const [specs, setSpecs] = useState([{ key: '', value: '' }])
+  // Especificaciones dinámicas: array de { key, value, unit }
+  const [specs, setSpecs] = useState([{ key: '', value: '', unit: '' }])
   const [selectedClient, setSelectedClient] = useState(null)
   const [equipos, setEquipos] = useState([])
   const [saving, setSaving] = useState(false)
@@ -97,7 +97,7 @@ export default function ClientesPage() {
     setSaving(false)
   }
 
-  const addSpec = () => setSpecs(s => [...s, { key: '', value: '' }])
+  const addSpec = () => setSpecs(s => [...s, { key: '', value: '', unit: '' }])
   const removeSpec = (idx) => setSpecs(s => s.filter((_, i) => i !== idx))
   const updateSpec = (idx, field, val) => setSpecs(s => s.map((sp, i) => i === idx ? { ...sp, [field]: val } : sp))
 
@@ -134,9 +134,11 @@ export default function ClientesPage() {
 
       if (equipoError) throw equipoError
 
-      // Convertir specs dinámicas a objeto JSON
+      // Convertir specs dinámicas a objeto JSON estructurado con unidades de medida
       const specsObj = {}
-      specs.filter(s => s.key.trim()).forEach(s => { specsObj[s.key.trim()] = s.value })
+      specs.filter(s => s.key.trim()).forEach(s => {
+        specsObj[s.key.trim()] = { value: s.value, unit: s.unit }
+      })
 
       await supabase.from('especificaciones_equipos').insert({
         equipo_id: equipoData.id,
@@ -145,7 +147,7 @@ export default function ClientesPage() {
 
       setMsg({ type: 'success', text: 'Equipo registrado con éxito.' })
       setEquipoForm(defaultEquipoForm())
-      setSpecs([{ key: '', value: '' }])
+      setSpecs([{ key: '', value: '', unit: '' }])
       fetchClientDetails(selectedClient)
     } catch (err) {
       setMsg({ type: 'error', text: err.message })
@@ -287,11 +289,16 @@ export default function ClientesPage() {
                             Especificaciones Técnicas
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                            {specEntries.map(([k, v]) => (
-                              <span key={k} style={{ fontSize: 12, background: 'var(--accent-soft)', color: 'var(--accent)', padding: '4px 10px', borderRadius: 6, fontWeight: 500 }}>
-                                <strong>{k}:</strong> {v}
-                              </span>
-                            ))}
+                            {specEntries.map(([k, v]) => {
+                              const displayVal = typeof v === 'object' && v !== null
+                                ? `${v.value} ${v.unit || ''}`.trim()
+                                : v
+                              return (
+                                <span key={k} style={{ fontSize: 12, background: 'var(--accent-soft)', color: 'var(--accent)', padding: '4px 10px', borderRadius: 6, fontWeight: 500 }}>
+                                  <strong>{k}:</strong> {displayVal}
+                                </span>
+                              )
+                            })}
                           </div>
                         </div>
                       )}
@@ -404,26 +411,33 @@ export default function ClientesPage() {
                 </div>
 
                 {specs.map((sp, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                  <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
                     <input
                       className="form-input"
-                      placeholder="Nombre (Ej. Voltaje)"
+                      placeholder="Nombre (Ej. Presión)"
                       value={sp.key}
                       onChange={e => updateSpec(idx, 'key', e.target.value)}
-                      style={{ flex: 1 }}
+                      style={{ flex: 2 }}
                     />
                     <input
                       className="form-input"
-                      placeholder="Valor (Ej. 220V)"
+                      placeholder="Valor (Ej. 65)"
                       value={sp.value}
                       onChange={e => updateSpec(idx, 'value', e.target.value)}
+                      style={{ flex: 1.5 }}
+                    />
+                    <input
+                      className="form-input"
+                      placeholder="Unidad (Ej. PSI)"
+                      value={sp.unit}
+                      onChange={e => updateSpec(idx, 'unit', e.target.value)}
                       style={{ flex: 1 }}
                     />
                     {specs.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeSpec(idx)}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
                       >
                         ×
                       </button>
