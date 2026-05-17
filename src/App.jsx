@@ -260,6 +260,22 @@ function PerfilPage() {
                 )}
               </button>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guía de Inicio</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Volver a ver el tutorial interactivo</div>
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  localStorage.removeItem('mantenizapp_walkthrough_completed')
+                  window.location.reload()
+                }} 
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                📖 Iniciar
+              </button>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Plataforma Profesional</div>
@@ -391,12 +407,295 @@ function PerfilPage() {
   )
 }
 
+function ProfileCompletionOverlay({ user, onComplete }) {
+  const [form, setForm] = React.useState({
+    nombre: '',
+    apellido: '',
+    documentoIdentidad: '',
+    gradoProfesion: '',
+    telefono: '',
+    competencias: ''
+  })
+  const [saving, setSaving] = React.useState(false)
+  const [error, setError] = React.useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.nombre.trim() || !form.apellido.trim()) {
+      setError('El nombre y apellido son obligatorios.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const { error } = await supabase
+        .from('perfiles')
+        .upsert({
+          id: user.id,
+          nombre: form.nombre.trim(),
+          apellido: form.apellido.trim(),
+          documento_identidad: form.documentoIdentidad.trim(),
+          grado_profesion: form.gradoProfesion.trim(),
+          telefono: form.telefono.trim(),
+          correo_profesional: user.email,
+          competencias: form.competencias.trim(),
+          updated_at: new Date()
+        })
+      
+      if (error) throw error
+      onComplete()
+    } catch (err) {
+      console.error('Error saving profile:', err)
+      setError(err.message || 'Error al guardar el perfil.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="profile-completion-overlay">
+      <div className="profile-completion-card">
+        <div className="profile-completion-header">
+          <div className="profile-completion-logo-wrapper">
+            <img src="/logo.png" alt="Mantenizapp" className="profile-completion-logo" />
+          </div>
+          <h2>¡Bienvenido a Mantenizapp! 🛠️</h2>
+          <p className="profile-completion-intro">
+            Para comenzar, completemos tu perfil profesional técnico. Estos datos son muy importantes porque **se usarán automáticamente para rellenar y firmar de manera formal todos tus presupuestos, informes técnicos y documentos de servicio**, ahorrándote valioso tiempo de escritura manual.
+          </p>
+        </div>
+
+        {error && (
+          <div className="auth-error" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Nombre *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Juan"
+                value={form.nombre}
+                onChange={e => setForm({ ...form, nombre: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Apellido *</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Pérez"
+                value={form.apellido}
+                onChange={e => setForm({ ...form, apellido: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Documento de Identidad (Cédula/DNI)</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Ej: V-12345678"
+              value={form.documentoIdentidad}
+              onChange={e => setForm({ ...form, documentoIdentidad: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Grado Académico o Profesión</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Ej: Técnico Frigorista Superior"
+              value={form.gradoProfesion}
+              onChange={e => setForm({ ...form, gradoProfesion: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Teléfono de Contacto</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Ej: +58 412 1234567"
+              value={form.telefono}
+              onChange={e => setForm({ ...form, telefono: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Especialidades / Competencias</label>
+            <textarea
+              className="form-textarea"
+              placeholder="Ej: Sistemas de climatización comercial, chillers, refrigeración industrial..."
+              value={form.competencias}
+              onChange={e => setForm({ ...form, competencias: e.target.value })}
+              rows={2}
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '10px', height: '42px', fontWeight: 'bold' }} disabled={saving}>
+            {saving ? <span className="spinner" /> : 'Guardar perfil y continuar →'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function WalkthroughTour({ onClose }) {
+  const [step, setStep] = React.useState(0)
+
+  const steps = [
+    {
+      title: '📊 El Dashboard (Métricas y Control)',
+      desc: 'Bienvenido al panel principal de Mantenizapp. Aquí verás de un vistazo el resumen diario de tus clientes atendidos, equipos en monitoreo y los servicios programados para el día de hoy con sus respectivas horas.',
+      image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400&auto=format&fit=crop'
+    },
+    {
+      title: '👥 Clientes & Directorio Técnico',
+      desc: 'En esta sección podrás registrar la base de datos de tus clientes y vincularles sus aires acondicionados, cavas o sistemas industriales. Podrás definir su marca, modelo, serial y cuándo les corresponde su próximo mantenimiento preventivo.',
+      image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=400&auto=format&fit=crop'
+    },
+    {
+      title: '📅 Agenda y Calendario Inteligente',
+      desc: 'Planifica y organiza tus visitas técnicas reales. Mantenizapp diferencia de forma única e inteligente la fecha programada de tu visita física de la fecha de recomendación técnica del próximo mantenimiento preventivo automático (ej: cada 3 meses).',
+      image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=400&auto=format&fit=crop'
+    },
+    {
+      title: '📝 Informes Técnicos con Inteligencia Artificial',
+      desc: 'Redacta diagnósticos, listas de repuestos e informes de servicio ultra-profesionales. Ahorra tiempo ingresando ideas cortas y dejando que la IA de Gemini autocomplete todos los campos de redacción formal con un solo clic.',
+      image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=400&auto=format&fit=crop'
+    },
+    {
+      title: '💼 Presupuestos y Plantillas (Duplicar)',
+      desc: 'Genera cotizaciones en PDF, edita precios e ítems al instante, y usa presupuestos previos como plantillas rápidas presionando "Duplicar". Modifica solo lo que necesites y guarda para crear un nuevo presupuesto en segundos.',
+      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=400&auto=format&fit=crop'
+    }
+  ]
+
+  const currentStep = steps[step]
+
+  const handleNext = () => {
+    if (step < steps.length - 1) {
+      setStep(step + 1)
+    } else {
+      localStorage.setItem('mantenizapp_walkthrough_completed', 'true')
+      onClose()
+    }
+  }
+
+  const handlePrev = () => {
+    if (step > 0) {
+      setStep(step - 1)
+    }
+  }
+
+  return (
+    <div className="walkthrough-overlay">
+      <div className="walkthrough-card">
+        <button className="walkthrough-close-btn" onClick={() => {
+          localStorage.setItem('mantenizapp_walkthrough_completed', 'true')
+          onClose()
+        }}>✕</button>
+
+        <div className="walkthrough-progress-bar">
+          <div className="walkthrough-progress-fill" style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+        </div>
+
+        <div className="walkthrough-content">
+          <div className="walkthrough-image-container">
+            <img src={currentStep.image} alt={currentStep.title} className="walkthrough-image" />
+            <div className="walkthrough-badge">Paso {step + 1} de {steps.length}</div>
+          </div>
+          
+          <div className="walkthrough-text">
+            <h3>{currentStep.title}</h3>
+            <p>{currentStep.desc}</p>
+          </div>
+        </div>
+
+        <div className="walkthrough-actions">
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={handlePrev} 
+            disabled={step === 0}
+            style={{ minWidth: '80px', margin: 0 }}
+          >
+            ← Anterior
+          </button>
+          <div className="walkthrough-dots">
+            {steps.map((_, idx) => (
+              <span key={idx} className={`walkthrough-dot ${idx === step ? 'active' : ''}`} onClick={() => setStep(idx)} />
+            ))}
+          </div>
+          <button 
+            className="btn btn-primary btn-sm" 
+            onClick={handleNext}
+            style={{ minWidth: '100px', margin: 0, fontWeight: 'bold' }}
+          >
+            {step === steps.length - 1 ? '¡Comenzar! 🎉' : 'Siguiente →'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AppLayout() {
   const { user, loading } = useAuth()
   const [current, setCurrent] = React.useState('dashboard')
   const [notifications, setNotifications] = React.useState([])
   const [showNotifDrawer, setShowNotifDrawer] = React.useState(false)
   const unreadCount = notifications.filter(n => !n.read).length
+
+  const [profileComplete, setProfileComplete] = React.useState(true)
+  const [profileChecking, setProfileChecking] = React.useState(true)
+  const [showWalkthrough, setShowWalkthrough] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!user) {
+      setProfileChecking(false)
+      return
+    }
+
+    const checkProfileAndWalkthrough = async () => {
+      setProfileChecking(true)
+      try {
+        const { data, error } = await supabase
+          .from('perfiles')
+          .select('nombre, apellido')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (error) throw error
+
+        if (!data || !data.nombre || !data.apellido) {
+          setProfileComplete(false)
+        } else {
+          setProfileComplete(true)
+          const completed = localStorage.getItem('mantenizapp_walkthrough_completed')
+          if (completed !== 'true') {
+            setShowWalkthrough(true)
+          }
+        }
+      } catch (err) {
+        console.error('Error checking profile status:', err)
+      } finally {
+        setProfileChecking(false)
+      }
+    }
+
+    checkProfileAndWalkthrough()
+  }, [user])
 
   React.useEffect(() => {
     if (!user) return
@@ -508,7 +807,7 @@ function AppLayout() {
     return () => clearInterval(interval)
   }, [user])
 
-  if (loading) {
+  if (loading || (user && profileChecking)) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', gap: '16px' }}>
         <img src="/carga.gif" alt="Cargando Mantenizapp..." style={{ width: '100px', height: '100px', objectFit: 'contain' }} />
@@ -520,6 +819,21 @@ function AppLayout() {
   }
 
   if (!user) return <AuthPage />
+
+  if (!profileComplete) {
+    return (
+      <ProfileCompletionOverlay 
+        user={user} 
+        onComplete={() => {
+          setProfileComplete(true)
+          const completed = localStorage.getItem('mantenizapp_walkthrough_completed')
+          if (completed !== 'true') {
+            setShowWalkthrough(true)
+          }
+        }} 
+      />
+    )
+  }
 
   return (
     <div className="app-layout">
@@ -622,6 +936,9 @@ function AppLayout() {
           )
         })}
       </nav>
+      {showWalkthrough && (
+        <WalkthroughTour onClose={() => setShowWalkthrough(false)} />
+      )}
     </div>
   )
 }

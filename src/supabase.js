@@ -42,36 +42,51 @@ if (!localStorage.getItem('mock_agenda')) {
 export const supabase = new Proxy(realSupabase, {
   get(target, prop) {
     if (prop === 'auth') {
-      return {
-        ...target.auth,
-        async getSession() {
-          if (localStorage.getItem('mock_user')) {
-            const user = JSON.parse(localStorage.getItem('mock_user'))
-            return { data: { session: { user } }, error: null }
+      return new Proxy(target.auth, {
+        get(authTarget, authProp) {
+          if (authProp === 'getSession') {
+            return async () => {
+              if (localStorage.getItem('mock_user')) {
+                const user = JSON.parse(localStorage.getItem('mock_user'))
+                return { data: { session: { user } }, error: null }
+              }
+              return authTarget.getSession()
+            }
           }
-          return target.auth.getSession()
-        },
-        onAuthStateChange(callback) {
-          const unsub = target.auth.onAuthStateChange(callback)
-          if (localStorage.getItem('mock_user')) {
-            const user = JSON.parse(localStorage.getItem('mock_user'))
-            setTimeout(() => callback('SIGNED_IN', { user }), 0)
+          if (authProp === 'onAuthStateChange') {
+            return (callback) => {
+              const unsub = authTarget.onAuthStateChange(callback)
+              if (localStorage.getItem('mock_user')) {
+                const user = JSON.parse(localStorage.getItem('mock_user'))
+                setTimeout(() => callback('SIGNED_IN', { user }), 0)
+              }
+              return unsub
+            }
           }
-          return unsub
-        },
-        async signInWithPassword({ email, password }) {
-          if (email.trim() === 'admin@mantenizapp.com' && password === 'admin123') {
-            const user = { id: '00000000-0000-0000-0000-000000000000', email: email.trim() }
-            localStorage.setItem('mock_user', JSON.stringify(user))
-            return { data: { user, session: {} }, error: null }
+          if (authProp === 'signInWithPassword') {
+            return async ({ email, password }) => {
+              if (email.trim() === 'admin@mantenizapp.com' && password === 'admin123') {
+                const user = { id: '00000000-0000-0000-0000-000000000000', email: email.trim() }
+                localStorage.setItem('mock_user', JSON.stringify(user))
+                return { data: { user, session: {} }, error: null }
+              }
+              return authTarget.signInWithPassword({ email, password })
+            }
           }
-          return target.auth.signInWithPassword({ email, password })
-        },
-        async signOut() {
-          localStorage.removeItem('mock_user')
-          return target.auth.signOut()
+          if (authProp === 'signOut') {
+            return async () => {
+              localStorage.removeItem('mock_user')
+              return authTarget.signOut()
+            }
+          }
+          
+          const val = authTarget[authProp]
+          if (typeof val === 'function') {
+            return val.bind(authTarget)
+          }
+          return val
         }
-      }
+      })
     }
 
     if (prop === 'from') {
