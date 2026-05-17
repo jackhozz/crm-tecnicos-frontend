@@ -132,6 +132,7 @@ export default function ClientesPage() {
           modelo: equipoForm.modelo,
           serial: equipoForm.serial,
           capacidad: equipoForm.tipo_equipo,
+          tipo: equipoForm.tipo_equipo || 'Equipo', // Compatibilidad con columna 'tipo' obligatoria en base de datos del usuario
           ultimo_mantenimiento: equipoForm.ultimo_mantenimiento || null,
           proximo_mantenimiento: proximoCalculado || null,
           intervalo_mantenimiento: parseInt(equipoForm.intervalo) || null,
