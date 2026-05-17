@@ -1,4 +1,5 @@
 import React from 'react'
+import { supabase } from './supabase'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthPage from './pages/AuthPage'
 import DashboardPage from './pages/DashboardPage'
