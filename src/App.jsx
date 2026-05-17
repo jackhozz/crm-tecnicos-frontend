@@ -427,6 +427,7 @@ function AppLayout() {
       {/* CONTENIDO PRINCIPAL */}
       <main className="main-content">
         {current === 'dashboard' && <DashboardPage setCurrent={setCurrent} />}
+        {current === 'agenda' && <AgendaPage />}
         {current === 'clientes' && <ClientesPage />}
         {current === 'presupuestos' && <PresupuestosPage />}
         {current === 'informes' && <InformesPage />}
