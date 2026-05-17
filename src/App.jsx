@@ -276,6 +276,55 @@ function PerfilPage() {
                 📖 Iniciar
               </button>
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Notificación de Prueba</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Probar alertas nativas de fondo</div>
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                onClick={async () => {
+                  if (!('Notification' in window)) {
+                    alert('Este navegador no soporta notificaciones de escritorio.')
+                    return
+                  }
+                  
+                  let permission = Notification.permission
+                  if (permission === 'default') {
+                    permission = await Notification.requestPermission()
+                  }
+                  
+                  if (permission === 'granted') {
+                    if ('serviceWorker' in navigator) {
+                      try {
+                        const reg = await navigator.serviceWorker.ready
+                        await reg.showNotification('🚀 Prueba de Mantenizapp', {
+                          body: '¡Excelente! Las notificaciones nativas de segundo plano están funcionando perfectamente en tu dispositivo.',
+                          icon: '/logo.png',
+                          badge: '/logo.png',
+                          vibrate: [200, 100, 200]
+                        })
+                      } catch (err) {
+                        new Notification('🚀 Prueba de Mantenizapp', {
+                          body: '¡Excelente! Las notificaciones nativas de primer plano están funcionando.',
+                          icon: '/logo.png'
+                        })
+                      }
+                    } else {
+                      new Notification('🚀 Prueba de Mantenizapp', {
+                        body: '¡Excelente! Las notificaciones nativas de primer plano están funcionando.',
+                        icon: '/logo.png'
+                      })
+                    }
+                  } else {
+                    alert('Permiso de notificaciones denegado. Por favor, actívalas en la barra de direcciones de tu navegador.')
+                  }
+                }} 
+                style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                🔔 Probar
+              </button>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Plataforma Profesional</div>
