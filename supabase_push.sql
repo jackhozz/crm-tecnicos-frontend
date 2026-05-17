@@ -28,34 +28,42 @@ DECLARE
 BEGIN
   -- Solo enviar push si la tarea es de prioridad Alta y no está completada
   IF NEW.priority = 'Alta' AND NEW.completed = FALSE THEN
-    -- Intentar obtener la cabecera de autorización de forma segura en formato JSONB
+    -- Envolver todo en un bloque EXCEPTION para que NUNCA cancele la inserción de la tarea
     BEGIN
-      req_headers := current_setting('request.headers', true);
-      IF req_headers IS NOT NULL AND req_headers <> '' THEN
-        auth_header := req_headers::jsonb->>'authorization';
+      -- Intentar obtener la cabecera de autorización de forma segura
+      BEGIN
+        req_headers := current_setting('request.headers', true);
+        IF req_headers IS NOT NULL AND req_headers <> '' THEN
+          auth_header := req_headers::jsonb->>'authorization';
+        END IF;
+      EXCEPTION WHEN OTHERS THEN
+        auth_header := NULL;
+      END;
+
+      -- Si no viene cabecera en el contexto actual, usar la anon key del sistema por defecto
+      IF auth_header IS NULL THEN
+        auth_header := 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbXF2dWlrZWxkdXBjaHhxeGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MTM3MzIsImV4cCI6MjA5NDQ4OTczMn0.Zjipc8m8FK8VpuRIfaMBmbzYbNYItdnKE6iDQWsYY8Y';
       END IF;
+
+      -- Intentar el POST. Si la extensión pg_net (esquema 'net') no está activa, no detendrá la app
+      PERFORM net.http_post(
+        url := 'https://igmqvuikeldupchxqxap.supabase.co/functions/v1/enviar-webpush-directo',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', auth_header
+        ),
+        body := json_build_object(
+          'user_id', NEW.user_id,
+          'title', '📌 Tarea Pendiente Urgente',
+          'body', NEW.text,
+          'url', '/dashboard'
+        )::text::jsonb
+      );
     EXCEPTION WHEN OTHERS THEN
-      auth_header := NULL;
+      -- Capturar cualquier excepción (incluyendo que el esquema 'net' no existe)
+      -- y reportarlo como un warning sutil en los logs de Supabase sin romper la transacción
+      RAISE WARNING 'No se pudo enviar la notificación push de la tarea: %', SQLERRM;
     END;
-
-    -- Si no viene cabecera en el contexto actual, usar la anon key del sistema por defecto
-    IF auth_header IS NULL THEN
-      auth_header := 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbXF2dWlrZWxkdXBjaHhxeGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MTM3MzIsImV4cCI6MjA5NDQ4OTczMn0.Zjipc8m8FK8VpuRIfaMBmbzYbNYItdnKE6iDQWsYY8Y';
-    END IF;
-
-    PERFORM net.http_post(
-      url := 'https://igmqvuikeldupchxqxap.supabase.co/functions/v1/enviar-webpush-directo',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', auth_header
-      ),
-      body := json_build_object(
-        'user_id', NEW.user_id,
-        'title', '📌 Tarea Pendiente Urgente',
-        'body', NEW.text,
-        'url', '/dashboard'
-      )::text::jsonb
-    );
   END IF;
   RETURN NEW;
 END;
