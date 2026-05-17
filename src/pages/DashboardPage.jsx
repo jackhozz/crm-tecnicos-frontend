@@ -10,6 +10,9 @@ export default function DashboardPage({ setCurrent }) {
   const [searchClient, setSearchClient] = useState('')
   const [schedulingEquipo, setSchedulingEquipo] = useState(null)
   const [newScheduleDate, setNewScheduleDate] = useState('')
+  const [newScheduleTime, setNewScheduleTime] = useState('')
+  const [newScheduleNotes, setNewScheduleNotes] = useState('')
+  const [allAgendas, setAllAgendas] = useState([])
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [scheduleMsg, setScheduleMsg] = useState(null)
   const [stats, setStats] = useState({
@@ -65,6 +68,7 @@ export default function DashboardPage({ setCurrent }) {
         setHoyList([])
         setSemanaList([])
         setAtrasados([])
+        setAllAgendas([])
         setLoading(false)
         return
       }
@@ -75,35 +79,100 @@ export default function DashboardPage({ setCurrent }) {
         .in('cliente_id', clientesIds)
 
       if (equiposErr) throw equiposErr
+      setEquiposList(equipos || [])
 
       const todayStr = getTodayString()
       const hoy = new Date()
       hoy.setHours(0, 0, 0, 0)
 
+      // Cargar citas de la tabla agenda
+      let agendasPendientes = []
+      let agendaSuccess = false
+      try {
+        const { data: agData, error: agErr } = await supabase
+          .from('agenda')
+          .select('*')
+          .eq('estado', 'pendiente')
+        if (!agErr) {
+          agendasPendientes = agData || []
+          setAllAgendas(agData || [])
+          agendaSuccess = true
+        } else {
+          console.warn('Tabla agenda no detectada, usando fallback en proximo_mantenimiento:', agErr.message)
+          setAllAgendas([])
+        }
+      } catch (err) {
+        console.warn('Error cargando agendas:', err)
+        setAllAgendas([])
+      }
+
       const realHoyList = []
       const realSemanaList = []
       const realAtrasadosList = []
 
-      ;(equipos || []).forEach(eq => {
-        if (!eq.proximo_mantenimiento) return
+      if (agendaSuccess) {
+        // Mapear visitas reales desde la tabla 'agenda'
+        agendasPendientes.forEach(ag => {
+          const eq = (equipos || []).find(e => e.id === ag.equipo_id)
+          if (!eq) return
 
-        if (eq.proximo_mantenimiento === todayStr) {
-          realHoyList.push(eq)
-        } else {
-          const dateParts = eq.proximo_mantenimiento.split('-')
-          const fechaProx = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
-          fechaProx.setHours(0, 0, 0, 0)
+          const agendaEvent = {
+            ...eq,
+            agenda_id: ag.id,
+            fecha_agenda_real: ag.fecha,
+            hora_agenda_real: ag.hora,
+            notas_agenda_real: ag.notas,
+            estado_agenda_real: ag.estado
+          }
 
-          if (fechaProx < hoy) {
-            realAtrasadosList.push(eq)
+          if (ag.fecha === todayStr) {
+            realHoyList.push(agendaEvent)
           } else {
-            const diffDays = (fechaProx - hoy) / 86400000
-            if (diffDays > 0 && diffDays <= 7) {
-              realSemanaList.push(eq)
+            const dateParts = ag.fecha.split('-')
+            const fechaVisita = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
+            fechaVisita.setHours(0, 0, 0, 0)
+
+            if (fechaVisita < hoy) {
+              realAtrasadosList.push(agendaEvent)
+            } else {
+              const diffDays = (fechaVisita - hoy) / 86400000
+              if (diffDays > 0 && diffDays <= 7) {
+                realSemanaList.push(agendaEvent)
+              }
             }
           }
-        }
-      })
+        })
+      } else {
+        // Fallback: Usar la fecha recomendada proximo_mantenimiento
+        ;(equipos || []).forEach(eq => {
+          if (!eq.proximo_mantenimiento) return
+
+          const agendaEvent = {
+            ...eq,
+            fecha_agenda_real: eq.proximo_mantenimiento,
+            hora_agenda_real: null,
+            notas_agenda_real: null,
+            estado_agenda_real: 'pendiente'
+          }
+
+          if (eq.proximo_mantenimiento === todayStr) {
+            realHoyList.push(agendaEvent)
+          } else {
+            const dateParts = eq.proximo_mantenimiento.split('-')
+            const fechaProx = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
+            fechaProx.setHours(0, 0, 0, 0)
+
+            if (fechaProx < hoy) {
+              realAtrasadosList.push(agendaEvent)
+            } else {
+              const diffDays = (fechaProx - hoy) / 86400000
+              if (diffDays > 0 && diffDays <= 7) {
+                realSemanaList.push(agendaEvent)
+              }
+            }
+          }
+        })
+      }
 
       setStats({
         clientesCount: clientes.length,
@@ -111,7 +180,6 @@ export default function DashboardPage({ setCurrent }) {
         estaSemanaCount: realHoyList.length + realSemanaList.length,
         atrasadosCount: realAtrasadosList.length,
       })
-      setEquiposList(equipos || [])
       setHoyList(realHoyList)
       setSemanaList(realSemanaList)
       setAtrasados(realAtrasadosList)
@@ -126,7 +194,6 @@ export default function DashboardPage({ setCurrent }) {
     } catch (err) {
       console.error('Error cargando datos del dashboard:', err)
     } finally {
-      // Retrasar levemente la carga para lucir la preciosa animación gif
       setTimeout(() => {
         setLoading(false)
       }, 800)
@@ -163,15 +230,29 @@ export default function DashboardPage({ setCurrent }) {
       return
     }
     setSavingSchedule(true)
+    
     const { error } = await supabase
-      .from('equipos')
-      .update({ proximo_mantenimiento: newScheduleDate })
-      .eq('id', schedulingEquipo.id)
+      .from('agenda')
+      .insert({
+        user_id: user.id,
+        equipo_id: schedulingEquipo.id,
+        fecha: newScheduleDate,
+        hora: newScheduleTime || null,
+        notas: newScheduleNotes || null,
+        estado: 'pendiente'
+      })
 
     if (error) {
-      setScheduleMsg(error.message)
+      if (error.message.includes('relation "agenda" does not exist')) {
+        setScheduleMsg('La tabla de agenda no existe. Ejecuta el SQL de "supabase_agenda.sql" en Supabase.')
+      } else {
+        setScheduleMsg(error.message)
+      }
     } else {
       setScheduleMsg(null)
+      setNewScheduleDate('')
+      setNewScheduleTime('')
+      setNewScheduleNotes('')
       setSchedulingEquipo(null)
       loadDashboardData()
     }
@@ -418,11 +499,21 @@ export default function DashboardPage({ setCurrent }) {
               const cliente = eq.clientes
               if (!cliente) return null
 
-              let statusLabel = 'Sin Programar'
+              const eqAgendas = allAgendas.filter(a => a.equipo_id === eq.id)
+              const hasAgenda = eqAgendas.length > 0
+
+              let statusLabel = 'Por Agendar'
               let statusColor = 'var(--text-muted)'
               let statusBg = 'var(--bg-base)'
+              let agendaInfoText = 'Sin visitas programadas'
               
-              if (eq.proximo_mantenimiento) {
+              if (hasAgenda) {
+                const nextAg = eqAgendas[0]
+                statusLabel = 'Agendado'
+                statusColor = '#16a34a'
+                statusBg = '#dcfce7'
+                agendaInfoText = `Agendado para: ${nextAg.fecha}${nextAg.hora ? ` (${nextAg.hora})` : ''}`
+              } else if (eq.proximo_mantenimiento) {
                 const todayStr = getTodayString()
                 const hoy = new Date()
                 hoy.setHours(0,0,0,0)
@@ -431,35 +522,34 @@ export default function DashboardPage({ setCurrent }) {
                 fechaProx.setHours(0,0,0,0)
 
                 if (eq.proximo_mantenimiento === todayStr) {
-                  statusLabel = 'Programado Hoy'
-                  statusColor = '#2563eb'
-                  statusBg = '#dbeafe'
+                  statusLabel = 'Vence Hoy (Recomendado)'
+                  statusColor = '#d97706'
+                  statusBg = '#fef3c7'
                 } else if (fechaProx < hoy) {
-                  statusLabel = 'Atrasado / Urgente'
+                  statusLabel = 'Vencido (Por Agendar)'
                   statusColor = '#dc2626'
                   statusBg = '#fee2e2'
                 } else {
                   const diffDays = (fechaProx - hoy) / 86400000
                   if (diffDays <= 7) {
-                    statusLabel = 'Próximo esta semana'
+                    statusLabel = 'Vence esta semana'
                     statusColor = '#d97706'
                     statusBg = '#fef3c7'
                   } else {
-                    statusLabel = 'Al día'
-                    statusColor = '#16a34a'
-                    statusBg = '#dcfce7'
+                    statusLabel = 'Recomendado'
+                    statusColor = 'var(--accent)'
+                    statusBg = 'var(--accent-soft)'
                   }
                 }
               }
 
-              // Mensaje detallado: su equipo (nombre) su último mantenimiento fue (fecha) y ya está pronto a que sea , quisiera agendar.
               const techName = profile ? `${profile.nombre || ''} ${profile.apellido || ''}`.trim() : 'su técnico'
               const techProf = profile?.grado_profesion ? ` (${profile.grado_profesion})` : ''
               
-              const waTextRaw = `Estimado *${cliente.nombre}*, le escribe *${techName}*${techProf}. Le informo que su equipo *${eq.nombre}* tuvo su último mantenimiento el *${eq.ultimo_mantenimiento || '—'}* y ya está pronto a que sea el siguiente (Próximo mantenimiento programado: *${eq.proximo_mantenimiento || 'Sin programar'}*). Quisiera agendar su próxima visita técnica. ¿Me confirma su disponibilidad? Quedamos atentos.`
+              const waTextRaw = `Estimado *${cliente.nombre}*, le escribe *${techName}*${techProf}. Le informo que su equipo *${eq.nombre}* tuvo su último mantenimiento el *${eq.ultimo_mantenimiento || '—'}* y ya está pronto a que sea el siguiente (Próximo mantenimiento recomendado: *${eq.proximo_mantenimiento || 'Sin programar'}*). Quisiera agendar su próxima visita técnica. ¿Me confirma su disponibilidad? Quedamos atentos.`
               const formattedWaText = encodeURIComponent(waTextRaw)
               
-              const mailBodyRaw = `Estimado ${cliente.nombre},\n\nLe escribe ${techName}${techProf}.\n\nLe informo que su equipo ${eq.nombre} tuvo su último mantenimiento el ${eq.ultimo_mantenimiento || '—'} y ya está pronto a que sea el siguiente (Próximo mantenimiento programado: ${eq.proximo_mantenimiento || 'Sin programar'}).\n\nQuisiera agendar su próxima visita técnica para garantizar su correcto funcionamiento. ¿Nos confirma qué día y hora le convienen?\n\nQuedamos atentos.\n\nAtentamente,\n${techName}`
+              const mailBodyRaw = `Estimado ${cliente.nombre},\n\nLe escribe ${techName}${techProf}.\n\nLe informo que su equipo ${eq.nombre} tuvo su último mantenimiento el ${eq.ultimo_mantenimiento || '—'} y ya está pronto a que sea el siguiente (Próximo mantenimiento recomendado: ${eq.proximo_mantenimiento || 'Sin programar'}).\n\nQuisiera agendar su próxima visita técnica para garantizar su correcto funcionamiento. ¿Nos confirma qué día y hora le convienen?\n\nQuedamos atentos.\n\nAtentamente,\n${techName}`
               const formattedMailBody = encodeURIComponent(mailBodyRaw)
 
               return (
@@ -473,7 +563,7 @@ export default function DashboardPage({ setCurrent }) {
                       Cliente: <span style={{ fontWeight: '600' }}>{cliente.nombre}</span> · Tel: {cliente.telefono || '—'}
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Último Mant.: <span style={{ fontWeight: '600' }}>{eq.ultimo_mantenimiento || '—'}</span> · Próximo Mant.: <span style={{ fontWeight: '600', color: statusColor }}>{eq.proximo_mantenimiento || 'Sin programar'}</span>
+                      Recomendado: <span style={{ fontWeight: '600' }}>{eq.proximo_mantenimiento || '—'}</span> · <span style={{ color: hasAgenda ? '#16a34a' : 'var(--text-muted)', fontWeight: hasAgenda ? 700 : 500 }}>{agendaInfoText}</span>
                     </div>
                   </div>
                   
@@ -567,7 +657,7 @@ export default function DashboardPage({ setCurrent }) {
                       <td style={{ fontSize: '13px' }}>{eq.marca || '—'} · {eq.modelo || '—'}</td>
                       <td>
                         <span className="badge" style={{ background: '#fee2e2', color: '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
-                          {eq.proximo_mantenimiento}
+                          {eq.fecha_agenda_real || eq.proximo_mantenimiento} {eq.hora_agenda_real ? `(${eq.hora_agenda_real})` : ''}
                         </span>
                       </td>
                       <td>
@@ -612,12 +702,35 @@ export default function DashboardPage({ setCurrent }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Fecha del Próximo Mantenimiento</label>
+              <label className="form-label">Fecha del Mantenimiento Programado *</label>
               <input 
                 type="date" 
                 className="form-input" 
                 value={newScheduleDate} 
                 onChange={e => setNewScheduleDate(e.target.value)} 
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Hora Estimada</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Ej: 10:30 AM o 15:00" 
+                value={newScheduleTime} 
+                onChange={e => setNewScheduleTime(e.target.value)} 
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="form-label">Notas de Visita</label>
+              <textarea 
+                className="form-textarea" 
+                placeholder="Comentarios adicionales o materiales necesarios..." 
+                value={newScheduleNotes} 
+                onChange={e => setNewScheduleNotes(e.target.value)} 
+                rows={2}
               />
             </div>
 

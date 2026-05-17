@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
 
+// Calcula fecha de próximo mantenimiento dada una fecha base y un intervalo
+function calcularProximaFecha(fechaBase, intervalo, unidad) {
+  if (!fechaBase || !intervalo) return ''
+  const [y, m, d] = fechaBase.split('-').map(Number)
+  const base = new Date(y, m - 1, d)
+  const n = parseInt(intervalo)
+  if (isNaN(n) || n <= 0) return ''
+  let result = new Date(base)
+  if (unidad === 'dias') result.setDate(result.getDate() + n)
+  else if (unidad === 'meses') result.setMonth(result.getMonth() + n)
+  else if (unidad === 'anos') result.setFullYear(result.getFullYear() + n)
+  return result.toISOString().split('T')[0]
+}
+
 export default function AgendaPage() {
   const { user } = useAuth()
   const [viewMode, setViewMode] = useState('calendar') // 'calendar' | 'list'
@@ -14,6 +28,8 @@ export default function AgendaPage() {
   // States for Rescheduling
   const [editingEquipo, setEditingEquipo] = useState(null)
   const [newDate, setNewDate] = useState('')
+  const [newTime, setNewTime] = useState('')
+  const [newNotes, setNewNotes] = useState('')
   const [updating, setUpdating] = useState(false)
   const [msg, setMsg] = useState(null)
 
@@ -39,17 +55,59 @@ export default function AgendaPage() {
 
   const fetchEquiposConMantenimiento = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('equipos')
-      .select('*, clientes(*)')
-      .not('proximo_mantenimiento', 'is', null)
-      .order('proximo_mantenimiento', { ascending: true })
     
-    if (error) {
-      setMsg({ type: 'error', text: error.message })
-    } else {
-      setEquipos(data || [])
+    let agendaSuccess = false
+    try {
+      const { data, error } = await supabase
+        .from('agenda')
+        .select('*, equipos(*, clientes(*))')
+        .eq('estado', 'pendiente')
+        .order('fecha', { ascending: true })
+
+      if (!error) {
+        const mappedData = (data || []).map(ag => {
+          if (!ag.equipos) return null
+          return {
+            ...ag.equipos,
+            agenda_id: ag.id,
+            fecha_agenda_real: ag.fecha,
+            hora_agenda_real: ag.hora,
+            notas_agenda_real: ag.notes || ag.notas,
+            estado_agenda_real: ag.estado,
+            clientes: ag.equipos.clientes
+          }
+        }).filter(Boolean)
+
+        setEquipos(mappedData)
+        agendaSuccess = true
+      } else {
+        console.warn('Fallo al obtener tabla agenda, usando fallback en proximo_mantenimiento:', error.message)
+      }
+    } catch (err) {
+      console.warn('Error general obteniendo agenda:', err)
     }
+
+    if (!agendaSuccess) {
+      const { data, error } = await supabase
+        .from('equipos')
+        .select('*, clientes(*)')
+        .not('proximo_mantenimiento', 'is', null)
+        .order('proximo_mantenimiento', { ascending: true })
+      
+      if (error) {
+        setMsg({ type: 'error', text: error.message })
+      } else {
+        const mappedData = (data || []).map(eq => ({
+          ...eq,
+          fecha_agenda_real: eq.proximo_mantenimiento,
+          hora_agenda_real: null,
+          notas_agenda_real: null,
+          estado_agenda_real: 'pendiente'
+        }))
+        setEquipos(mappedData)
+      }
+    }
+
     setLoading(false)
   }
 
@@ -58,17 +116,81 @@ export default function AgendaPage() {
     if (!editingEquipo || !newDate) return
     setUpdating(true)
     
-    const { error } = await supabase
-      .from('equipos')
-      .update({ proximo_mantenimiento: newDate })
-      .eq('id', editingEquipo.id)
+    if (editingEquipo.agenda_id) {
+      const { error } = await supabase
+        .from('agenda')
+        .update({
+          fecha: newDate,
+          hora: newTime || null,
+          notas: newNotes || null
+        })
+        .eq('id', editingEquipo.agenda_id)
 
-    if (error) {
-      setMsg({ type: 'error', text: 'Error al reprogramar: ' + error.message })
+      if (error) {
+        setMsg({ type: 'error', text: 'Error al reprogramar: ' + error.message })
+      } else {
+        setMsg({ type: 'success', text: 'Cita en agenda reprogramada con éxito.' })
+        setEditingEquipo(null)
+        fetchEquiposConMantenimiento()
+      }
     } else {
-      setMsg({ type: 'success', text: 'Mantenimiento reprogramado con éxito.' })
-      setEditingEquipo(null)
+      const { error } = await supabase
+        .from('equipos')
+        .update({ proximo_mantenimiento: newDate })
+        .eq('id', editingEquipo.id)
+
+      if (error) {
+        setMsg({ type: 'error', text: 'Error al reprogramar: ' + error.message })
+      } else {
+        setMsg({ type: 'success', text: 'Mantenimiento reprogramado con éxito.' })
+        setEditingEquipo(null)
+        fetchEquiposConMantenimiento()
+      }
+    }
+    setUpdating(false)
+  }
+
+  const handleCompleteVisit = async (eq) => {
+    if (!eq.agenda_id) {
+      alert('Esta cita no tiene un registro en la agenda (cargada por fallback). No se puede completar desde aquí.')
+      return
+    }
+
+    const confirm = window.confirm(`¿Estás seguro de marcar esta visita de mantenimiento para "${eq.nombre}" como REALIZADA?\n\nSe actualizará la fecha de último mantenimiento a: ${eq.fecha_agenda_real}`)
+    if (!confirm) return
+
+    setUpdating(true)
+    try {
+      let proximoCalculado = null
+      if (eq.intervalo_mantenimiento) {
+        proximoCalculado = calcularProximaFecha(
+          eq.fecha_agenda_real,
+          eq.intervalo_mantenimiento,
+          eq.intervalo_unidad || 'meses'
+        )
+      }
+
+      const { error: eqError } = await supabase
+        .from('equipos')
+        .update({
+          ultimo_mantenimiento: eq.fecha_agenda_real,
+          proximo_mantenimiento: proximoCalculado
+        })
+        .eq('id', eq.id)
+
+      if (eqError) throw eqError
+
+      const { error: agError } = await supabase
+        .from('agenda')
+        .update({ estado: 'realizado' })
+        .eq('id', eq.agenda_id)
+
+      if (agError) throw agError
+
+      setMsg({ type: 'success', text: `¡Visita técnica completada! Se guardó como último mantenimiento la fecha ${eq.fecha_agenda_real} y se recalculó la fecha técnica recomendada a: ${proximoCalculado || 'Sin calcular'}` })
       fetchEquiposConMantenimiento()
+    } catch (err) {
+      setMsg({ type: 'error', text: 'Error al completar la visita: ' + err.message })
     }
     setUpdating(false)
   }
@@ -110,7 +232,7 @@ export default function AgendaPage() {
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    const dayEquipos = equipos.filter(e => e.proximo_mantenimiento === dateStr)
+    const dayEquipos = equipos.filter(e => e.fecha_agenda_real === dateStr)
     cells.push({ type: 'day', day: d, dateStr, dayEquipos })
   }
 
@@ -129,15 +251,16 @@ export default function AgendaPage() {
   })
 
   // Selected Day Details
-  const selectedDayEquipos = equipos.filter(e => e.proximo_mantenimiento === selectedDayStr)
+  const selectedDayEquipos = equipos.filter(e => e.fecha_agenda_real === selectedDayStr)
 
   // Message Helper
   const getWhatsAppLink = (eq) => {
     const clientName = eq.clientes?.nombre || 'Cliente'
     const phone = eq.clientes?.telefono || ''
     const techSignature = profile ? `${profile.nombre || ''} ${profile.apellido || ''} (${profile.grado_profesion || 'Técnico'})`.trim() : 'Su Técnico Especialista'
+    const horaStr = eq.hora_agenda_real ? ` a las ${eq.hora_agenda_real}` : ''
     
-    const text = `Hola ${clientName}, le saluda ${techSignature}. Quería recordarle que tenemos programado el mantenimiento de su equipo "${eq.nombre}" para la fecha ${eq.proximo_mantenimiento}. Por favor confírmeme si la fecha y hora son convenientes para usted. ¡Muchas gracias!`
+    const text = `Hola ${clientName}, le saluda ${techSignature}. Quería recordarle que tenemos programado el mantenimiento de su equipo "${eq.nombre}" para la fecha ${eq.fecha_agenda_real}${horaStr}. Por favor confírmeme si la fecha y hora son convenientes para usted. ¡Muchas gracias!`
     return `https://api.whatsapp.com/send?phone=${phone.replace(/\D/g, '')}&text=${encodeURIComponent(text)}`
   }
 
@@ -145,9 +268,10 @@ export default function AgendaPage() {
     const clientName = eq.clientes?.nombre || 'Cliente'
     const mail = eq.clientes?.correo || ''
     const techSignature = profile ? `${profile.nombre || ''} ${profile.apellido || ''} (${profile.grado_profesion || 'Técnico'})`.trim() : 'Su Técnico Especialista'
+    const horaStr = eq.hora_agenda_real ? ` a las ${eq.hora_agenda_real}` : ''
     
     const subject = `Recordatorio de Mantenimiento Técnico Programado: ${eq.nombre}`
-    const body = `Estimado(a) ${clientName},\n\nLe saluda cordialmente ${techSignature}.\n\nEste es un recordatorio para confirmarle que el mantenimiento preventivo de su equipo/sistema:\n- Equipo: ${eq.nombre} (${eq.marca || '—'} / ${eq.modelo || '—'})\n- Fecha Programada: ${eq.proximo_mantenimiento}\n\nPor favor, respóndame a este correo para coordinar y confirmar el acceso al equipo.\n\nQuedo a su completa disposición.\n\nAtentamente,\n${techSignature}`
+    const body = `Estimado(a) ${clientName},\n\nLe saluda cordialmente ${techSignature}.\n\nEste es un recordatorio para confirmarle que el mantenimiento preventivo de su equipo/sistema:\n- Equipo: ${eq.nombre} (${eq.marca || '—'} / ${eq.modelo || '—'})\n- Fecha Programada: ${eq.fecha_agenda_real}${horaStr}\n\nPor favor, respóndame a este correo para coordinar y confirmar el acceso al equipo.\n\nQuedo a su completa disposición.\n\nAtentamente,\n${techSignature}`
     
     return `mailto:${mail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
@@ -370,16 +494,18 @@ export default function AgendaPage() {
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         <span>Cliente: {eq.clientes?.nombre || '—'}</span>
                       </div>
-                      {eq.clientes?.telefono && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                          <span>Telf: {eq.clientes?.telefono}</span>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <span>Programado: <strong>{eq.fecha_agenda_real}</strong> {eq.hora_agenda_real ? `(${eq.hora_agenda_real})` : ''}</span>
+                      </div>
+                      {eq.notas_agenda_real && (
+                        <div style={{ fontSize: '11px', color: 'var(--accent)', marginTop: '4px', background: 'var(--accent-soft)', padding: '4px 8px', borderRadius: 6, fontWeight: 500 }}>
+                          📝 Nota: {eq.notas_agenda_real}
                         </div>
                       )}
                     </div>
 
                     {/* Quick Contact & Action Buttons */}
-                    <div style={{ display: 'flex', gap: '6px', borderTop: '1px solid var(--border)', paddingTop: '8px', marginTop: '4px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', borderTop: '1px solid var(--border)', paddingTop: '8px', marginTop: '4px' }}>
                       
                       {/* WhatsApp Button */}
                       {eq.clientes?.telefono && (
@@ -388,33 +514,36 @@ export default function AgendaPage() {
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="btn btn-outline" 
-                          style={{ flex: 1, padding: '4px', height: '28px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', borderColor: '#22c55e', color: '#22c55e' }}
+                          style={{ padding: '4px', height: '28px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', borderColor: '#22c55e', color: '#22c55e' }}
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                           WhatsApp
-                        </a>
-                      )}
-
-                      {/* Email Button */}
-                      {eq.clientes?.correo && (
-                        <a 
-                          href={getEmailLink(eq)} 
-                          className="btn btn-outline" 
-                          style={{ flex: 1, padding: '4px', height: '28px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                          Email
                         </a>
                       )}
 
                       {/* Reschedule Button */}
                       <button 
-                        onClick={() => { setEditingEquipo(eq); setNewDate(eq.proximo_mantenimiento || ''); }}
+                        onClick={() => { 
+                          setEditingEquipo(eq); 
+                          setNewDate(eq.fecha_agenda_real || eq.proximo_mantenimiento || ''); 
+                          setNewTime(eq.hora_agenda_real || '');
+                          setNewNotes(eq.notas_agenda_real || '');
+                        }}
                         className="btn btn-outline" 
-                        style={{ flex: 1, padding: '4px', height: '28px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                        style={{ padding: '4px', height: '28px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                       >
                         Reprogramar
                       </button>
+
+                      {/* Completar Button */}
+                      {eq.agenda_id && (
+                        <button 
+                          onClick={() => handleCompleteVisit(eq)}
+                          className="btn" 
+                          style={{ gridColumn: 'span 2', padding: '4px', height: '28px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'var(--success)', color: '#fff', border: 'none', fontWeight: 'bold' }}
+                        >
+                          ✔️ Completar Visita
+                        </button>
+                      )}
                     </div>
 
                   </div>
@@ -446,7 +575,7 @@ export default function AgendaPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               
               {equipos.map(eq => {
-                const diffTime = new Date(eq.proximo_mantenimiento) - new Date()
+                const diffTime = new Date(eq.fecha_agenda_real) - new Date()
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
                 const isUrgent = diffDays <= 7 && diffDays >= 0
                 const isOverdue = diffDays < 0
@@ -485,10 +614,15 @@ export default function AgendaPage() {
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span>Cliente: <strong>{eq.clientes?.nombre || '—'}</strong></span>
                         {eq.marca && <span>Marca: {eq.marca}</span>}
                         {eq.modelo && <span>Modelo: {eq.modelo}</span>}
+                        {eq.notas_agenda_real && (
+                          <span style={{ fontSize: '11px', color: 'var(--accent)', background: 'var(--accent-soft)', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
+                            📝 {eq.notas_agenda_real}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -496,7 +630,7 @@ export default function AgendaPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                       
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{eq.proximo_mantenimiento}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{eq.fecha_agenda_real} {eq.hora_agenda_real ? `(${eq.hora_agenda_real})` : ''}</div>
                         <div style={{ fontSize: '11px', color: isOverdue || isUrgent ? '#ea580c' : 'var(--text-muted)', marginTop: '2px' }}>
                           {isOverdue ? `Hace ${Math.abs(diffDays)} días` : `En ${diffDays} días`}
                         </div>
@@ -517,12 +651,27 @@ export default function AgendaPage() {
                         )}
 
                         <button 
-                          onClick={() => { setEditingEquipo(eq); setNewDate(eq.proximo_mantenimiento || ''); }}
+                          onClick={() => { 
+                            setEditingEquipo(eq); 
+                            setNewDate(eq.fecha_agenda_real || eq.proximo_mantenimiento || ''); 
+                            setNewTime(eq.hora_agenda_real || '');
+                            setNewNotes(eq.notas_agenda_real || '');
+                          }}
                           className="btn btn-outline" 
                           style={{ height: '32px', fontSize: '12px', padding: '0 10px' }}
                         >
                           Reprogramar
                         </button>
+
+                        {eq.agenda_id && (
+                          <button 
+                            onClick={() => handleCompleteVisit(eq)}
+                            className="btn" 
+                            style={{ height: '32px', fontSize: '12px', padding: '0 10px', background: 'var(--success)', color: '#fff', border: 'none', fontWeight: 'bold' }}
+                          >
+                            ✔️ Completar
+                          </button>
+                        )}
                       </div>
 
                     </div>
@@ -574,6 +723,32 @@ export default function AgendaPage() {
                   required
                 />
               </div>
+
+              {editingEquipo.agenda_id && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Hora de Visita</label>
+                    <input 
+                      type="text"
+                      className="form-input" 
+                      placeholder="Ej: 10:30 AM o 14:00" 
+                      value={newTime} 
+                      onChange={e => setNewTime(e.target.value)} 
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Notas e Indicaciones</label>
+                    <textarea 
+                      className="form-textarea" 
+                      placeholder="Instrucciones adicionales para la visita técnica..." 
+                      value={newNotes} 
+                      onChange={e => setNewNotes(e.target.value)} 
+                      rows={2}
+                    />
+                  </div>
+                </>
+              )}
 
               <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                 <button 

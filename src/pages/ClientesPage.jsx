@@ -49,6 +49,10 @@ export default function ClientesPage() {
   const [equipos, setEquipos] = useState([])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [clientAgendas, setClientAgendas] = useState([])
+  const [showAgendaModal, setShowAgendaModal] = useState(false)
+  const [agendaForm, setAgendaForm] = useState({ equipoId: '', fecha: '', hora: '', notas: '' })
+  const [savingAgenda, setSavingAgenda] = useState(false)
 
   useEffect(() => { fetchClientes() }, [])
 
@@ -70,15 +74,36 @@ export default function ClientesPage() {
     setLoading(true)
     setSelectedClient(client)
     setMsg(null)
-    const { data, error } = await supabase
+    
+    const { data: eqs, error: eqsErr } = await supabase
       .from('equipos')
       .select('*, especificaciones_equipos(*)')
       .eq('cliente_id', client.id)
       .order('nombre', { ascending: true })
-    if (!error) {
-      setEquipos(data || [])
+      
+    if (eqsErr) {
+      setMsg({ type: 'error', text: 'Error de Supabase: ' + eqsErr.message })
+      setEquipos([])
+      setClientAgendas([])
     } else {
-      setMsg({ type: 'error', text: 'Error de Supabase: ' + error.message })
+      setEquipos(eqs || [])
+      
+      const eqIds = (eqs || []).map(e => e.id)
+      if (eqIds.length > 0) {
+        const { data: ags, error: agsErr } = await supabase
+          .from('agenda')
+          .select('*')
+          .in('equipo_id', eqIds)
+          .order('fecha', { ascending: true })
+        if (!agsErr) {
+          setClientAgendas(ags || [])
+        } else {
+          console.warn('Tabla agenda no disponible:', agsErr.message)
+          setClientAgendas([])
+        }
+      } else {
+        setClientAgendas([])
+      }
     }
     setLoading(false)
     setView('details')
@@ -164,6 +189,36 @@ export default function ClientesPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCreateAgenda = async (e) => {
+    e.preventDefault()
+    if (!agendaForm.equipoId || !agendaForm.fecha) {
+      setMsg({ type: 'error', text: 'Selecciona un equipo y define una fecha para la visita.' })
+      return
+    }
+    setSavingAgenda(true)
+    
+    const { error } = await supabase
+      .from('agenda')
+      .insert({
+        user_id: user.id,
+        equipo_id: agendaForm.equipoId,
+        fecha: agendaForm.fecha,
+        hora: agendaForm.hora || null,
+        notas: agendaForm.notas || null,
+        estado: 'pendiente'
+      })
+
+    if (error) {
+      setMsg({ type: 'error', text: 'Error al programar visita: ' + error.message })
+    } else {
+      setMsg({ type: 'success', text: 'Visita programada con éxito en la agenda.' })
+      setShowAgendaModal(false)
+      setAgendaForm({ equipoId: '', fecha: '', hora: '', notas: '' })
+      fetchClientDetails(selectedClient)
+    }
+    setSavingAgenda(false)
   }
 
   const filteredClientes = clientes.filter(c =>
@@ -294,7 +349,7 @@ export default function ClientesPage() {
                       </div>
 
                       {specEntries.length > 0 && (
-                        <div>
+                        <div style={{ marginBottom: 10 }}>
                           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
                             Especificaciones Técnicas
                           </div>
@@ -312,6 +367,51 @@ export default function ClientesPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Agendas asociadas a este equipo */}
+                      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Historial de Citas y Visitas
+                          </span>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary btn-sm" 
+                            style={{ fontSize: 11, padding: '4px 8px' }}
+                            onClick={() => {
+                              setAgendaForm({ equipoId: eq.id, fecha: '', hora: '', notas: '' })
+                              setShowAgendaModal(true)
+                            }}
+                          >
+                            + Programar Visita
+                          </button>
+                        </div>
+
+                        {clientAgendas.filter(a => a.equipo_id === eq.id).length === 0 ? (
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                            Sin visitas agendadas para este equipo.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {clientAgendas.filter(a => a.equipo_id === eq.id).map(a => {
+                              const badgeColor = a.estado === 'pendiente' ? 'var(--accent)' : a.estado === 'realizado' ? 'var(--success)' : 'var(--text-muted)'
+                              const badgeBg = a.estado === 'pendiente' ? 'var(--accent-soft)' : a.estado === 'realizado' ? 'rgba(22, 163, 74, 0.08)' : 'var(--bg-base)'
+                              return (
+                                <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-base)', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)' }}>
+                                  <div style={{ fontSize: 12 }}>
+                                    <span style={{ fontWeight: 700 }}>{a.fecha}</span> {a.hora && <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>({a.hora})</span>}
+                                    {a.notas && <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>📝 {a.notas}</div>}
+                                  </div>
+                                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: badgeBg, color: badgeColor, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                    {a.estado === 'pendiente' ? 'Programado' : a.estado === 'realizado' ? 'Realizado' : 'Cancelado'}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -468,69 +568,133 @@ export default function ClientesPage() {
 
   // ---- VISTA PRINCIPAL (LISTADO) ----
   return (
-    <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Directorio de Clientes</h1>
-          <p className="page-sub">{clientes.length} clientes registrados</p>
+    <>
+      <div>
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 className="page-title">Directorio de Clientes</h1>
+            <p className="page-sub">{clientes.length} clientes registrados</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => setView('new-client')}>+ Nuevo Cliente</button>
         </div>
-        <button className="btn btn-primary" onClick={() => setView('new-client')}>+ Nuevo Cliente</button>
-      </div>
 
-      <div className="form-group" style={{ marginBottom: 24 }}>
-        <input
-          className="form-input"
-          placeholder="Buscar por nombre o dirección..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ maxWidth: 360 }}
-        />
-      </div>
+        <div className="form-group" style={{ marginBottom: 24 }}>
+          <input
+            className="form-input"
+            placeholder="Buscar por nombre o dirección..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ maxWidth: 360 }}
+          />
+        </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <span className="spinner" style={{ margin: 'auto', display: 'block', width: 32, height: 32 }} />
-        </div>
-      ) : filteredClientes.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>
-          No se encontraron clientes.
-        </div>
-      ) : (
-        <div className="grid-2">
-          {filteredClientes.map(c => {
-            const numEquipos = c.equipos?.length || 0
-            return (
-              <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>{c.nombre}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{c.direccion || 'Sin dirección'}</div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <span className="spinner" style={{ margin: 'auto', display: 'block', width: 32, height: 32 }} />
+          </div>
+        ) : filteredClientes.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>
+            No se encontraron clientes.
+          </div>
+        ) : (
+          <div className="grid-2">
+            {filteredClientes.map(c => {
+              const numEquipos = c.equipos?.length || 0
+              return (
+                <div key={c.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 4 }}>{c.nombre}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{c.direccion || 'Sin dirección'}</div>
+                    </div>
+                    <span className="badge badge-blue">{numEquipos} equipo{numEquipos !== 1 ? 's' : ''}</span>
                   </div>
-                  <span className="badge badge-blue">{numEquipos} equipo{numEquipos !== 1 ? 's' : ''}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {c.telefono && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {c.telefono && (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ flex: 1, justifyContent: 'center' }}
+                        onClick={() => window.open(`https://wa.me/${c.telefono}`, '_blank')}
+                      >
+                        WhatsApp
+                      </button>
+                    )}
                     <button
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-primary btn-sm"
                       style={{ flex: 1, justifyContent: 'center' }}
-                      onClick={() => window.open(`https://wa.me/${c.telefono}`, '_blank')}
+                      onClick={() => fetchClientDetails(c)}
                     >
-                      WhatsApp
+                      Ver Equipos →
                     </button>
-                  )}
-                  <button
-                    className="btn btn-primary btn-sm"
-                    style={{ flex: 1, justifyContent: 'center' }}
-                    onClick={() => fetchClientDetails(c)}
-                  >
-                    Ver Equipos →
-                  </button>
+                  </div>
                 </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* MODAL PROGRAMAR VISITA DE ALTA GAMA */}
+      {showAgendaModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div className="card" style={{ maxWidth: 440, width: '100%', position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 850, color: 'var(--text-primary)', letterSpacing: '-0.02em', margin: 0 }}>Programar Visita en Agenda</h3>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, margin: '2px 0 0 0' }}>Coordina y agenda una visita física con el cliente</p>
               </div>
-            )
-          })}
+              <button 
+                onClick={() => setShowAgendaModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 24, padding: 0, lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAgenda}>
+              <div className="form-group">
+                <label className="form-label">Fecha de Visita *</label>
+                <input 
+                  type="date" 
+                  className="form-input" 
+                  value={agendaForm.fecha} 
+                  onChange={e => setAgendaForm({ ...agendaForm, fecha: e.target.value })} 
+                  required 
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Hora Estimada</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Ej: 09:30 AM o 14:00" 
+                  value={agendaForm.hora} 
+                  onChange={e => setAgendaForm({ ...agendaForm, hora: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <label className="form-label">Notas o Indicaciones Especiales</label>
+                <textarea 
+                  className="form-textarea" 
+                  placeholder="Ej: Traer filtros de reemplazo y refrigerante..." 
+                  value={agendaForm.notas} 
+                  onChange={e => setAgendaForm({ ...agendaForm, notas: e.target.value })} 
+                  rows={3} 
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAgendaModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={savingAgenda}>
+                  {savingAgenda ? 'Guardando...' : 'Programar Visita'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
