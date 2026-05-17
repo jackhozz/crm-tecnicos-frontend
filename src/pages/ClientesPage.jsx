@@ -58,19 +58,28 @@ export default function ClientesPage() {
       .from('clientes')
       .select('*, equipos(id)')
       .order('nombre', { ascending: true })
-    if (!error) setClientes(data || [])
+    if (!error) {
+      setClientes(data || [])
+    } else {
+      setMsg({ type: 'error', text: 'Error de Supabase: ' + error.message })
+    }
     setLoading(false)
   }
 
   const fetchClientDetails = async (client) => {
     setLoading(true)
     setSelectedClient(client)
+    setMsg(null)
     const { data, error } = await supabase
       .from('equipos')
       .select('*, especificaciones_equipos(*)')
       .eq('cliente_id', client.id)
       .order('nombre', { ascending: true })
-    if (!error) setEquipos(data || [])
+    if (!error) {
+      setEquipos(data || [])
+    } else {
+      setMsg({ type: 'error', text: 'Error de Supabase: ' + error.message })
+    }
     setLoading(false)
     setView('details')
   }
