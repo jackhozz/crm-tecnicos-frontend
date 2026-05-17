@@ -459,7 +459,7 @@ function ProfileCompletionOverlay({ user, onComplete }) {
           <div className="profile-completion-logo-wrapper">
             <img src="/logo.png" alt="Mantenizapp" className="profile-completion-logo" />
           </div>
-          <h2>¡Bienvenido a Mantenizapp! 🛠️</h2>
+          <h2>Bienvenido a Mantenizapp</h2>
           <p className="profile-completion-intro">
             Para comenzar, completemos tu perfil profesional técnico. Estos datos son muy importantes porque **se usarán automáticamente para rellenar y firmar de manera formal todos tus presupuestos, informes técnicos y documentos de servicio**, ahorrándote valioso tiempo de escritura manual.
           </p>
@@ -543,7 +543,7 @@ function ProfileCompletionOverlay({ user, onComplete }) {
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '10px', height: '42px', fontWeight: 'bold' }} disabled={saving}>
-            {saving ? <span className="spinner" /> : 'Guardar perfil y continuar →'}
+            {saving ? <span className="spinner" /> : 'Guardar perfil y continuar'}
           </button>
         </form>
       </div>
@@ -556,27 +556,27 @@ function WalkthroughTour({ onClose }) {
 
   const steps = [
     {
-      title: '📊 El Dashboard (Métricas y Control)',
+      title: 'El Dashboard (Métricas y Control)',
       desc: 'Bienvenido al panel principal de Mantenizapp. Aquí verás de un vistazo el resumen diario de tus clientes atendidos, equipos en monitoreo y los servicios programados para el día de hoy con sus respectivas horas.',
       image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400&auto=format&fit=crop'
     },
     {
-      title: '👥 Clientes & Directorio Técnico',
+      title: 'Clientes y Directorio Técnico',
       desc: 'En esta sección podrás registrar la base de datos de tus clientes y vincularles sus aires acondicionados, cavas o sistemas industriales. Podrás definir su marca, modelo, serial y cuándo les corresponde su próximo mantenimiento preventivo.',
       image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=400&auto=format&fit=crop'
     },
     {
-      title: '📅 Agenda y Calendario Inteligente',
+      title: 'Agenda y Calendario Inteligente',
       desc: 'Planifica y organiza tus visitas técnicas reales. Mantenizapp diferencia de forma única e inteligente la fecha programada de tu visita física de la fecha de recomendación técnica del próximo mantenimiento preventivo automático (ej: cada 3 meses).',
       image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=400&auto=format&fit=crop'
     },
     {
-      title: '📝 Informes Técnicos con Inteligencia Artificial',
+      title: 'Informes Técnicos con Inteligencia Artificial',
       desc: 'Redacta diagnósticos, listas de repuestos e informes de servicio ultra-profesionales. Ahorra tiempo ingresando ideas cortas y dejando que la IA de Gemini autocomplete todos los campos de redacción formal con un solo clic.',
       image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=400&auto=format&fit=crop'
     },
     {
-      title: '💼 Presupuestos y Plantillas (Duplicar)',
+      title: 'Presupuestos y Plantillas (Duplicar)',
       desc: 'Genera cotizaciones en PDF, edita precios e ítems al instante, y usa presupuestos previos como plantillas rápidas presionando "Duplicar". Modifica solo lo que necesites y guarda para crear un nuevo presupuesto en segundos.',
       image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=400&auto=format&fit=crop'
     }
@@ -630,7 +630,7 @@ function WalkthroughTour({ onClose }) {
             disabled={step === 0}
             style={{ minWidth: '80px', margin: 0 }}
           >
-            ← Anterior
+            Anterior
           </button>
           <div className="walkthrough-dots">
             {steps.map((_, idx) => (
@@ -642,7 +642,7 @@ function WalkthroughTour({ onClose }) {
             onClick={handleNext}
             style={{ minWidth: '100px', margin: 0, fontWeight: 'bold' }}
           >
-            {step === steps.length - 1 ? '¡Comenzar! 🎉' : 'Siguiente →'}
+            {step === steps.length - 1 ? 'Comenzar' : 'Siguiente'}
           </button>
         </div>
       </div>
