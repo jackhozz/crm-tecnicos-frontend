@@ -296,7 +296,9 @@ export default function PresupuestosPage() {
         {/* IA Section */}
         <div className="card" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 18 }}>✨</span>
+            <span style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </span>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14 }}>Descripción de obra con IA</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Describe brevemente lo que hiciste y la IA redacta el texto formal</div>
@@ -311,12 +313,17 @@ export default function PresupuestosPage() {
               style={{ flex: 1 }}
             />
             <button className="btn btn-ai" onClick={generarConIA} disabled={aiLoading || !aiPrompt.trim()}>
-              {aiLoading ? <span className="spinner" /> : '✨'}
+              {aiLoading ? <span className="spinner" /> : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              )}
               {aiLoading ? 'Generando...' : 'Generar'}
             </button>
           </div>
           {!GEMINI_KEY && (
-            <div className="alert alert-warning">⚠️ Agrega <code>VITE_GEMINI_API_KEY</code> en el .env para activar la IA.</div>
+            <div className="alert alert-warning" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Agrega <code>VITE_GEMINI_API_KEY</code> en el .env para activar la IA.</span>
+            </div>
           )}
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Descripción de obra</label>
@@ -368,7 +375,9 @@ export default function PresupuestosPage() {
 
         <div style={{ display: 'flex', gap: 12 }}>
           <button className="btn btn-primary" onClick={guardar} disabled={saving}>
-            {saving ? <span className="spinner" /> : '💾'}
+            {saving ? <span className="spinner" /> : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            )}
             {saving ? 'Guardando...' : 'Guardar presupuesto'}
           </button>
         </div>
@@ -390,8 +399,10 @@ export default function PresupuestosPage() {
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60 }}><span className="spinner" style={{ margin: 'auto', display: 'block', width: 32, height: 32 }} /></div>
       ) : presupuestos.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📄</div>
+        <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0' }}>
+          <div className="empty-icon" style={{ color: 'var(--text-muted)', marginBottom: '12px' }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
           <p>Aún no hay presupuestos. Crea el primero.</p>
         </div>
       ) : (

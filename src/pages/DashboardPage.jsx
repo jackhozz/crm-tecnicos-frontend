@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
 
-export default function DashboardPage() {
+export default function DashboardPage({ setCurrent }) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [clientesList, setClientesList] = useState([])
   const [stats, setStats] = useState({
     clientesCount: 0,
     equiposCount: 0,
@@ -42,9 +43,11 @@ export default function DashboardPage() {
 
       if (clientesErr) throw clientesErr
 
+      setClientesList(clientes || [])
       const clientesIds = (clientes || []).map(c => c.id)
 
       if (clientesIds.length === 0) {
+        setClientesList([])
         setStats({
           clientesCount: 0,
           equiposCount: 0,
@@ -152,7 +155,7 @@ export default function DashboardPage() {
   return (
     <div>
       {/* HEADER EXACTO AL MOCKUP (con nombre de página) */}
-      <div className="page-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title" style={{ fontSize: '28px', fontWeight: '850', color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>Dashboard</h1>
           <p className="page-sub" style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500', marginTop: '2px' }}>
@@ -163,6 +166,36 @@ export default function DashboardPage() {
         <img className="desktop-brand-logo" src="/isologotipo.png" alt="Mantenizapp" style={{ height: '48px', objectFit: 'contain', opacity: 0.9 }} />
       </div>
 
+      {/* ATAJOS OPERACIONALES RÁPIDOS */}
+      <div style={{ marginBottom: '28px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setCurrent('presupuestos')} 
+            className="btn btn-secondary" 
+            style={{ flex: 1, minWidth: '150px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: '10px', color: 'var(--accent)', fontWeight: '700', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Presupuesto IA
+          </button>
+          <button 
+            onClick={() => setCurrent('informes')} 
+            className="btn btn-secondary" 
+            style={{ flex: 1, minWidth: '150px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: '10px', color: 'var(--accent)', fontWeight: '700', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Emitir Informe
+          </button>
+          <button 
+            onClick={() => { setQuickForm(f => ({ ...f, type: 'cliente' })); setShowQuickModal(true); }} 
+            className="btn btn-secondary" 
+            style={{ flex: 1, minWidth: '150px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: '10px', color: 'var(--accent)', fontWeight: '700', fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            Nuevo Cliente
+          </button>
+        </div>
+      </div>
+
       {/* SECCIÓN 1: Tareas de Mantenimiento Hoy (REALES) */}
       <div style={{ marginBottom: '28px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '14px', letterSpacing: '-0.01em' }}>
@@ -170,8 +203,10 @@ export default function DashboardPage() {
         </h2>
         
         {hoyList.length === 0 && semanaList.length === 0 ? (
-          <div className="card" style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-surface)' }}>
-            <div style={{ fontSize: '28px', marginBottom: '8px' }}>✨</div>
+          <div className="card" style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ color: 'var(--accent)', marginBottom: '8px' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            </div>
             <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>¡Todo al día!</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>No hay tareas programadas para hoy ni para esta semana.</div>
           </div>
@@ -180,7 +215,9 @@ export default function DashboardPage() {
             {/* Tareas de Hoy */}
             {hoyList.map(eq => (
               <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid var(--accent)' }}>
-                <div className="task-icon-box" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>🔧</div>
+                <div className="task-icon-box" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </div>
                 <div>
                   <div className="task-title-mock" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{eq.nombre}</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{eq.clientes?.nombre}</div>
@@ -196,7 +233,9 @@ export default function DashboardPage() {
             {/* Mantenimientos Próximos de la Semana */}
             {semanaList.map(eq => (
               <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid #fbbf24' }}>
-                <div className="task-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>💨</div>
+                <div className="task-icon-box" style={{ background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
+                </div>
                 <div>
                   <div className="task-title-mock" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{eq.nombre}</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{eq.clientes?.nombre}</div>
@@ -219,7 +258,9 @@ export default function DashboardPage() {
         <div className="grid-2">
           {/* Card 1: Clientes */}
           <div className="property-card-mock">
-            <div className="property-icon-box" style={{ background: '#e0f2fe', color: '#0284c7' }}>🏠</div>
+            <div className="property-icon-box" style={{ background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
             <div className="property-info">
               <div className="property-title-mock">Mis Propiedades</div>
               <div className="property-tasks-mock">{stats.clientesCount} Clientes Registrados</div>
@@ -229,7 +270,9 @@ export default function DashboardPage() {
 
           {/* Card 2: Equipos */}
           <div className="property-card-mock">
-            <div className="property-icon-box" style={{ background: '#e0f2fe', color: '#0284c7' }}>🚗</div>
+            <div className="property-icon-box" style={{ background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
             <div className="property-info">
               <div className="property-title-mock">Flota de Vehículos</div>
               <div className="property-tasks-mock">{stats.equiposCount} Equipos Activos</div>
@@ -237,6 +280,76 @@ export default function DashboardPage() {
             <div style={{ width: '18px', height: '18px', background: '#22c55e', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800' }}>✓</div>
           </div>
         </div>
+      </div>
+
+      {/* SECCIÓN 3: Centro de Comunicación y Seguimiento Rápido */}
+      <div className="card" style={{ marginBottom: '28px', padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontWeight: '850', fontSize: '16px', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Centro de Comunicación Rápida</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500', marginTop: '2px' }}>Envía notificaciones de seguimiento con un solo clic</div>
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        </div>
+
+        {clientesList.length === 0 ? (
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0', fontSize: '13px' }}>
+            No hay clientes registrados aún.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+            {clientesList.map(c => {
+              const formattedWaText = encodeURIComponent(`Estimado *${c.nombre}*, le escribimos desde *Mantenizapp* para hacer seguimiento a sus mantenimientos preventivos. ¿Nos confirma si tiene disponibilidad esta semana para coordinar la visita técnica? Quedamos atentos.`);
+              const formattedMailBody = encodeURIComponent(`Estimado ${c.nombre},\n\nLe escribimos desde Mantenizapp para dar seguimiento a los mantenimientos preventivos de sus equipos.\n\nPor favor, confírmenos si tiene disponibilidad esta semana para coordinar la fecha de la visita.\n\nAtentamente,\nServicio Técnico Mantenizapp`);
+              
+              return (
+                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-base)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>{c.nombre}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {c.telefono || 'Sin teléfono'} · {c.correo || 'Sin correo'}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {c.telefono && (
+                      <button 
+                        onClick={() => window.open(`https://wa.me/${c.telefono}?text=${formattedWaText}`, '_blank')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ background: '#25d366', color: '#fff', border: 'none', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700', fontSize: '11px' }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                        WhatsApp
+                      </button>
+                    )}
+                    
+                    {c.correo && (
+                      <button 
+                        onClick={() => window.open(`mailto:${c.correo}?subject=Seguimiento%20de%20Mantenimiento%20-%20Mantenizapp&body=${formattedMailBody}`, '_blank')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700', fontSize: '11px' }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        Email
+                      </button>
+                    )}
+
+                    {c.telefono && (
+                      <button 
+                        onClick={() => window.open(`tel:${c.telefono}`)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Llamar por teléfono"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* BOTÓN FLOTANTE (FAB) DE AÑADIR NUEVA TAREA */}
@@ -258,8 +371,9 @@ export default function DashboardPage() {
         </div>
 
         {atrasados.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: '13px', fontWeight: 500 }}>
-            ✨ Todo al día. Sin mantenimientos atrasados.
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: '13px', fontWeight: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span>Todo al día. Sin mantenimientos atrasados.</span>
           </div>
         ) : (
           <div className="table-container">
@@ -318,8 +432,9 @@ export default function DashboardPage() {
 
             {quickForm.type === '' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <button className="btn btn-secondary" onClick={() => setQuickForm(f => ({ ...f, type: 'cliente' }))} style={{ width: '100%', justifyContent: 'flex-start', padding: 16 }}>
-                  🏢 Registrar Nuevo Cliente
+                <button className="btn btn-secondary" onClick={() => setQuickForm(f => ({ ...f, type: 'cliente' }))} style={{ width: '100%', justifyContent: 'flex-start', padding: 16, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="16"/><line x1="15" y1="22" x2="15" y2="16"/><line x1="9" y1="16" x2="15" y2="16"/></svg>
+                  Registrar Nuevo Cliente
                 </button>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', paddingLeft: 4 }}>
                   * Nota: Para registrar un equipo, presupuesto o informe técnico, dirígete a las pestañas correspondientes en la barra de navegación.
@@ -346,7 +461,9 @@ export default function DashboardPage() {
 
                 <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                   <button className="btn btn-primary" onClick={handleCreateQuickClient} disabled={savingQuick} style={{ flex: 1 }}>
-                    {savingQuick ? <span className="spinner" /> : '💾'}
+                    {savingQuick ? <span className="spinner" /> : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '6px' }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    )}
                     {savingQuick ? 'Guardando...' : 'Guardar Cliente'}
                   </button>
                   <button className="btn btn-secondary" onClick={() => setQuickForm(f => ({ ...f, type: '' }))} disabled={savingQuick}>

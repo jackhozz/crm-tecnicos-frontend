@@ -98,7 +98,17 @@ function Sidebar({ current, setCurrent }) {
           onClick={toggleTheme} 
           style={{ width: '100%', marginBottom: '16px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
-          {isDark ? '☀️ Modo Claro' : '🌙 Modo Oscuro'}
+          {isDark ? (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <span>Modo Claro</span>
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <span>Modo Oscuro</span>
+            </>
+          )}
         </button>
 
         <div className="user-chip" style={{ display: 'flex', alignItems: 'center', gap: '10px' }} onClick={() => setCurrent('perfil')}>
@@ -152,8 +162,18 @@ function PerfilPage() {
               <div style={{ fontSize: 14, fontWeight: 600 }}>Modo Oscuro</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cambiar apariencia visual</div>
             </div>
-            <button className="btn btn-secondary" onClick={toggleTheme} style={{ padding: '8px 16px', fontSize: '13px' }}>
-              {isDark ? '☀️ Claro' : '🌙 Oscuro'}
+            <button className="btn btn-secondary" onClick={toggleTheme} style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isDark ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  <span>Claro</span>
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  <span>Oscuro</span>
+                </>
+              )}
             </button>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -208,7 +228,7 @@ function AppLayout() {
       
       {/* CONTENIDO PRINCIPAL */}
       <main className="main-content">
-        {current === 'dashboard' && <DashboardPage />}
+        {current === 'dashboard' && <DashboardPage setCurrent={setCurrent} />}
         {current === 'clientes' && <ClientesPage />}
         {current === 'presupuestos' && <PresupuestosPage />}
         {current === 'informes' && <InformesPage />}
