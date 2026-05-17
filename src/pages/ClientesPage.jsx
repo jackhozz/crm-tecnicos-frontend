@@ -15,9 +15,24 @@ const defaultEquipoForm = () => ({
   serial: '',
   tipo_equipo: '',
   ultimo_mantenimiento: '',
-  proximo_mantenimiento: '',
+  intervalo: '6',
+  intervalo_unidad: 'meses',
   notas: '',
 })
+
+// Calcula fecha de próximo mantenimiento dada una fecha base y un intervalo
+function calcularProximaFecha(fechaBase, intervalo, unidad) {
+  if (!fechaBase || !intervalo) return ''
+  const [y, m, d] = fechaBase.split('-').map(Number)
+  const base = new Date(y, m - 1, d)
+  const n = parseInt(intervalo)
+  if (isNaN(n) || n <= 0) return ''
+  let result = new Date(base)
+  if (unidad === 'dias') result.setDate(result.getDate() + n)
+  else if (unidad === 'meses') result.setMonth(result.getMonth() + n)
+  else if (unidad === 'anos') result.setFullYear(result.getFullYear() + n)
+  return result.toISOString().split('T')[0]
+}
 
 export default function ClientesPage() {
   const { user } = useAuth()
@@ -93,6 +108,12 @@ export default function ClientesPage() {
     setMsg(null)
 
     try {
+      const proximoCalculado = calcularProximaFecha(
+        equipoForm.ultimo_mantenimiento,
+        equipoForm.intervalo,
+        equipoForm.intervalo_unidad
+      )
+
       const { data: equipoData, error: equipoError } = await supabase
         .from('equipos')
         .insert({
@@ -103,7 +124,9 @@ export default function ClientesPage() {
           serial: equipoForm.serial,
           capacidad: equipoForm.tipo_equipo,
           ultimo_mantenimiento: equipoForm.ultimo_mantenimiento || null,
-          proximo_mantenimiento: equipoForm.proximo_mantenimiento || null,
+          proximo_mantenimiento: proximoCalculado || null,
+          intervalo_mantenimiento: parseInt(equipoForm.intervalo) || null,
+          intervalo_unidad: equipoForm.intervalo_unidad,
           refrigerante: equipoForm.notas,
         })
         .select()
@@ -233,6 +256,28 @@ export default function ClientesPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6, fontSize: 13, background: 'var(--bg-base)', padding: 12, borderRadius: 8, marginBottom: 10 }}>
                         {eq.capacidad && <div><strong>Tipo:</strong> {eq.capacidad}</div>}
                         {eq.ultimo_mantenimiento && <div><strong>Último mant.:</strong> {eq.ultimo_mantenimiento}</div>}
+                        {eq.intervalo_mantenimiento && (
+                          <div>
+                            <strong>Frecuencia:</strong> {eq.intervalo_mantenimiento} {eq.intervalo_unidad || 'meses'}
+                          </div>
+                        )}
+                        {eq.proximo_mantenimiento && (() => {
+                          const hoy = new Date()
+                          hoy.setHours(0,0,0,0)
+                          const [y,m,d] = eq.proximo_mantenimiento.split('-').map(Number)
+                          const fechaProx = new Date(y, m-1, d)
+                          const dias = Math.round((fechaProx - hoy) / 86400000)
+                          const color = dias < 0 ? '#ef4444' : dias <= 7 ? '#f59e0b' : 'var(--success)'
+                          return (
+                            <div style={{ color }}>
+                              <strong style={{ color: 'var(--text-primary)' }}>Próximo mant.:</strong>{' '}
+                              {eq.proximo_mantenimiento}
+                              <span style={{ marginLeft: 6, fontSize: 11 }}>
+                                ({dias < 0 ? `${Math.abs(dias)}d atrasado` : dias === 0 ? 'Hoy' : `en ${dias}d`})
+                              </span>
+                            </div>
+                          )
+                        })()}
                         {eq.refrigerante && <div style={{ gridColumn: 'span 2' }}><strong>Notas:</strong> {eq.refrigerante}</div>}
                       </div>
 
@@ -283,16 +328,65 @@ export default function ClientesPage() {
                 <label className="form-label">Serial / N° de Serie</label>
                 <input className="form-input" placeholder="SN12345" value={equipoForm.serial} onChange={e => setEquipoForm({ ...equipoForm, serial: e.target.value })} />
               </div>
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Último Mantenimiento</label>
-                  <input type="date" className="form-input" value={equipoForm.ultimo_mantenimiento} onChange={e => setEquipoForm({ ...equipoForm, ultimo_mantenimiento: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Próximo Mantenimiento</label>
-                  <input type="date" className="form-input" value={equipoForm.proximo_mantenimiento} onChange={e => setEquipoForm({ ...equipoForm, proximo_mantenimiento: e.target.value })} />
+              <div className="form-group">
+                <label className="form-label">Último Mantenimiento</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={equipoForm.ultimo_mantenimiento}
+                  onChange={e => setEquipoForm({ ...equipoForm, ultimo_mantenimiento: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Frecuencia de Mantenimiento</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="Ej. 6"
+                    min="1"
+                    value={equipoForm.intervalo}
+                    onChange={e => setEquipoForm({ ...equipoForm, intervalo: e.target.value })}
+                    style={{ flex: 1 }}
+                  />
+                  <select
+                    className="form-input"
+                    value={equipoForm.intervalo_unidad}
+                    onChange={e => setEquipoForm({ ...equipoForm, intervalo_unidad: e.target.value })}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="dias">Días</option>
+                    <option value="meses">Meses</option>
+                    <option value="anos">Años</option>
+                  </select>
                 </div>
               </div>
+
+              {/* Preview automática de próxima fecha */}
+              {equipoForm.ultimo_mantenimiento && equipoForm.intervalo && (() => {
+                const proxima = calcularProximaFecha(equipoForm.ultimo_mantenimiento, equipoForm.intervalo, equipoForm.intervalo_unidad)
+                if (!proxima) return null
+                const hoy = new Date()
+                hoy.setHours(0,0,0,0)
+                const [y,m,d] = proxima.split('-').map(Number)
+                const fechaProx = new Date(y, m-1, d)
+                const diasRestantes = Math.round((fechaProx - hoy) / 86400000)
+                const color = diasRestantes < 0 ? '#ef4444' : diasRestantes <= 7 ? '#f59e0b' : 'var(--success)'
+                return (
+                  <div style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: 2 }}>Próximo mantenimiento calculado:</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{proxima}</div>
+                    <div style={{ color, fontSize: 12, marginTop: 2 }}>
+                      {diasRestantes < 0
+                        ? `Atrasado por ${Math.abs(diasRestantes)} días`
+                        : diasRestantes === 0
+                        ? 'Hoy'
+                        : `En ${diasRestantes} días`}
+                    </div>
+                  </div>
+                )
+              })()}
+
               <div className="form-group">
                 <label className="form-label">Notas</label>
                 <textarea className="form-textarea" placeholder="Observaciones generales..." value={equipoForm.notas} onChange={e => setEquipoForm({ ...equipoForm, notas: e.target.value })} rows={2} />
