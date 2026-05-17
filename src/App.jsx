@@ -774,6 +774,30 @@ function AppLayout() {
           })
         }
 
+        // D. Escanear tareas sin completar de prioridad Alta de la tabla 'todos'
+        try {
+          const { data: listTodos, error: todoErr } = await supabase
+            .from('todos')
+            .select('*')
+            .eq('completed', false)
+            .eq('priority', 'Alta')
+
+          if (listTodos && !todoErr) {
+            listTodos.forEach(todo => {
+              generatedNotifs.push({
+                id: `todo-${todo.id}`,
+                title: '📌 Tarea Pendiente Urgente',
+                desc: `Recordatorio: Tienes pendiente la tarea "${todo.text}".`,
+                time: 'Urgente',
+                read: false,
+                target: 'dashboard'
+              })
+            })
+          }
+        } catch (err) {
+          console.warn('Error escaneando tareas para notificaciones:', err)
+        }
+
         if (generatedNotifs.length === 0) {
           generatedNotifs.push({
             id: 'welcome',
