@@ -55,8 +55,8 @@ export default function AuthPage() {
       <div className="auth-bg-glow auth-bg-glow-2" />
 
       <div className="auth-card">
-        <div className="auth-logo">
-          <div className="auth-logo-icon">🔧</div>
+        <div className="auth-logo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Mantenizapp Logo" style={{ height: '70px', objectFit: 'contain', marginBottom: '16px' }} />
           <h1>Mantenizapp</h1>
           <p>Gestión de clientes y equipos</p>
         </div>

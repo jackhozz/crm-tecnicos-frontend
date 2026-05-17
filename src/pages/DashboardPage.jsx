@@ -11,6 +11,8 @@ export default function DashboardPage() {
     estaSemanaCount: 0,
     atrasadosCount: 0,
   })
+  const [hoyList, setHoyList] = useState([])
+  const [semanaList, setSemanaList] = useState([])
   const [atrasados, setAtrasados] = useState([])
   const [showQuickModal, setShowQuickModal] = useState(false)
   const [quickForm, setQuickForm] = useState({ type: '', nombre: '', telefono: '', correo: '', tipo: 'Cliente' })
@@ -22,6 +24,14 @@ export default function DashboardPage() {
       loadDashboardData()
     }
   }, [user])
+
+  const getTodayString = () => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
 
   const loadDashboardData = async () => {
     setLoading(true)
@@ -41,6 +51,8 @@ export default function DashboardPage() {
           estaSemanaCount: 0,
           atrasadosCount: 0,
         })
+        setHoyList([])
+        setSemanaList([])
         setAtrasados([])
         setLoading(false)
         return
@@ -53,25 +65,31 @@ export default function DashboardPage() {
 
       if (equiposErr) throw equiposErr
 
+      const todayStr = getTodayString()
       const hoy = new Date()
       hoy.setHours(0, 0, 0, 0)
 
-      const atrasadosList = []
-      let estaSemanaCount = 0
+      const realHoyList = []
+      const realSemanaList = []
+      const realAtrasadosList = []
 
       ;(equipos || []).forEach(eq => {
         if (!eq.proximo_mantenimiento) return
 
-        const dateParts = eq.proximo_mantenimiento.split('-')
-        const fechaProx = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
-        fechaProx.setHours(0, 0, 0, 0)
-
-        if (fechaProx < hoy) {
-          atrasadosList.push(eq)
+        if (eq.proximo_mantenimiento === todayStr) {
+          realHoyList.push(eq)
         } else {
-          const diffDays = (fechaProx - hoy) / 86400000
-          if (diffDays >= 0 && diffDays <= 7) {
-            estaSemanaCount++
+          const dateParts = eq.proximo_mantenimiento.split('-')
+          const fechaProx = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
+          fechaProx.setHours(0, 0, 0, 0)
+
+          if (fechaProx < hoy) {
+            realAtrasadosList.push(eq)
+          } else {
+            const diffDays = (fechaProx - hoy) / 86400000
+            if (diffDays > 0 && diffDays <= 7) {
+              realSemanaList.push(eq)
+            }
           }
         }
       })
@@ -79,14 +97,19 @@ export default function DashboardPage() {
       setStats({
         clientesCount: clientes.length,
         equiposCount: equipos.length,
-        estaSemanaCount,
-        atrasadosCount: atrasadosList.length,
+        estaSemanaCount: realHoyList.length + realSemanaList.length,
+        atrasadosCount: realAtrasadosList.length,
       })
-      setAtrasados(atrasadosList)
+      setHoyList(realHoyList)
+      setSemanaList(realSemanaList)
+      setAtrasados(realAtrasadosList)
     } catch (err) {
       console.error('Error cargando datos del dashboard:', err)
     } finally {
-      setLoading(false)
+      // Retrasar levemente la carga para lucir la preciosa animación gif
+      setTimeout(() => {
+        setLoading(false)
+      }, 800)
     }
   }
 
@@ -114,10 +137,14 @@ export default function DashboardPage() {
     setSavingQuick(false)
   }
 
+  // ANIMACIÓN DE CARGA MÓVIL/WEB DE ALTA GAMA CON CARGA.GIF
   if (loading) {
     return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="spinner" style={{ width: 32, height: 32 }} />
+      <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+        <img src="/carga.gif" alt="Cargando Mantenizapp..." style={{ width: '100px', height: '100px', objectFit: 'contain' }} />
+        <div style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '700', letterSpacing: '-0.02em', opacity: 0.8 }}>
+          Sincronizando con Mantenizapp...
+        </div>
       </div>
     )
   }
@@ -125,59 +152,63 @@ export default function DashboardPage() {
   return (
     <div>
       {/* HEADER EXACTO AL MOCKUP (con nombre de página) */}
-      <div className="page-header" style={{ marginBottom: '24px' }}>
-        <h1 className="page-title" style={{ fontSize: '28px', fontWeight: '850', color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>Dashboard</h1>
-        <p className="page-sub" style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500', marginTop: '2px' }}>
-          {new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </p>
+      <div className="page-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 className="page-title" style={{ fontSize: '28px', fontWeight: '850', color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>Dashboard</h1>
+          <p className="page-sub" style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500', marginTop: '2px' }}>
+            {new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        {/* Isologotipo corporativo decorativo en Desktop */}
+        <img className="desktop-brand-logo" src="/isologotipo.png" alt="Mantenizapp" style={{ height: '48px', objectFit: 'contain', opacity: 0.9 }} />
       </div>
 
-      {/* SECCIÓN 1: Tareas de Mantenimiento Hoy */}
+      {/* SECCIÓN 1: Tareas de Mantenimiento Hoy (REALES) */}
       <div style={{ marginBottom: '28px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '14px', letterSpacing: '-0.01em' }}>
-          Tareas de Mantenimiento Hoy
+          Mantenimientos para Hoy
         </h2>
-        <div className="today-tasks-slider">
-          {/* MOCK/DYNAMIC CARD 1 */}
-          <div className="task-card-mock">
-            <div className="task-icon-box" style={{ background: '#ffedd5', color: '#f97316' }}>🔧</div>
-            <div>
-              <div className="task-title-mock">Revisión de Caldera</div>
-              <div className="task-time-mock" style={{ marginTop: '8px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                2 PM
-              </div>
-            </div>
-            <div style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-muted)', fontSize: '18px', fontWeight: 'bold' }}>⋮</div>
+        
+        {hoyList.length === 0 && semanaList.length === 0 ? (
+          <div className="card" style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-surface)' }}>
+            <div style={{ fontSize: '28px', marginBottom: '8px' }}>✨</div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>¡Todo al día!</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>No hay tareas programadas para hoy ni para esta semana.</div>
           </div>
-
-          {/* MOCK/DYNAMIC CARD 2 */}
-          <div className="task-card-mock">
-            <div className="task-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>💨</div>
-            <div>
-              <div className="task-title-mock">Cambiar Filtro de Aire</div>
-              <div className="task-time-mock" style={{ marginTop: '8px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                4 PM
+        ) : (
+          <div className="today-tasks-slider">
+            {/* Tareas de Hoy */}
+            {hoyList.map(eq => (
+              <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid var(--accent)' }}>
+                <div className="task-icon-box" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>🔧</div>
+                <div>
+                  <div className="task-title-mock" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{eq.nombre}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{eq.clientes?.nombre}</div>
+                  <div className="task-time-mock" style={{ marginTop: '8px', color: 'var(--accent)' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Programado Hoy
+                  </div>
+                </div>
+                <div style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-muted)', fontSize: '18px', fontWeight: 'bold' }}>⋮</div>
               </div>
-            </div>
-            <div style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-muted)', fontSize: '18px', fontWeight: 'bold' }}>⋮</div>
-          </div>
+            ))}
 
-          {/* Si hay mantenimientos atrasados, agregarlos dinámicamente como tareas urgentes */}
-          {atrasados.slice(0, 3).map((eq, i) => (
-            <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid var(--danger)' }}>
-              <div className="task-icon-box" style={{ background: '#fee2e2', color: '#ef4444' }}>⚠️</div>
-              <div>
-                <div className="task-title-mock" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{eq.nombre}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{eq.clientes?.nombre}</div>
-                <div className="task-time-mock" style={{ marginTop: '8px', color: 'var(--danger)' }}>
-                  Atrasado
+            {/* Mantenimientos Próximos de la Semana */}
+            {semanaList.map(eq => (
+              <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid #fbbf24' }}>
+                <div className="task-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>💨</div>
+                <div>
+                  <div className="task-title-mock" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>{eq.nombre}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{eq.clientes?.nombre}</div>
+                  <div className="task-time-mock" style={{ marginTop: '8px', color: '#d97706' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    {eq.proximo_mantenimiento}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* SECCIÓN 2: Mis Propiedades (Directorio y Activos) */}
@@ -193,7 +224,6 @@ export default function DashboardPage() {
               <div className="property-title-mock">Mis Propiedades</div>
               <div className="property-tasks-mock">{stats.clientesCount} Clientes Registrados</div>
             </div>
-            {/* Orange warning alert badge */}
             <div style={{ width: '18px', height: '18px', background: '#f97316', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800' }}>!</div>
           </div>
 
@@ -204,7 +234,6 @@ export default function DashboardPage() {
               <div className="property-title-mock">Flota de Vehículos</div>
               <div className="property-tasks-mock">{stats.equiposCount} Equipos Activos</div>
             </div>
-            {/* Green checkmark badge */}
             <div style={{ width: '18px', height: '18px', background: '#22c55e', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800' }}>✓</div>
           </div>
         </div>

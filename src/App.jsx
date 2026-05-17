@@ -71,12 +71,8 @@ function Sidebar({ current, setCurrent }) {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 24px 24px' }}>
-        <MantenizappLogo size={36} />
-        <div>
-          <div className="brand-text" style={{ fontSize: '18px', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Mantenizapp</div>
-          <div className="brand-sub" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gestión Activos</div>
-        </div>
+      <div className="sidebar-brand" style={{ padding: '8px 24px 20px', borderBottom: '1px solid var(--border)', marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+        <img src="/isologotipo.png" alt="Mantenizapp Logo" style={{ height: '48px', maxWidth: '100%', objectFit: 'contain' }} />
       </div>
 
       <nav className="sidebar-nav">
@@ -183,8 +179,11 @@ function AppLayout() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
-        <div className="spinner" />
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', gap: '16px' }}>
+        <img src="/carga.gif" alt="Cargando Mantenizapp..." style={{ width: '100px', height: '100px', objectFit: 'contain' }} />
+        <div style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '700', letterSpacing: '-0.02em', opacity: 0.8 }}>
+          Iniciando Mantenizapp...
+        </div>
       </div>
     )
   }
@@ -195,9 +194,8 @@ function AppLayout() {
     <div className="app-layout">
       {/* CABECERA MÓVIL EXACTA AL MOCKUP */}
       <header className="mobile-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MantenizappLogo size={32} />
-          <span style={{ fontSize: '18px', fontWeight: '800', color: '#0b2149', letterSpacing: '-0.02em' }}>Mantenizapp</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/logotipo.png" alt="Mantenizapp" style={{ height: '32px', objectFit: 'contain' }} />
         </div>
         <div className="notification-bell">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0b2149" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -228,7 +226,7 @@ function AppLayout() {
               onClick={() => setCurrent(n.id)}
             >
               <div className={`nav-icon-container ${isActive ? 'active' : ''}`}>
-                {n.id === 'dashboard' ? <MantenizappLogo size={22} /> : getIcon(n.icon, isActive)}
+                {n.id === 'dashboard' ? <img src="/logo.png" alt="Inicio" style={{ width: '22px', height: '22px', objectFit: 'contain' }} /> : getIcon(n.icon, isActive)}
               </div>
               <span className="bottom-nav-label">{n.label}</span>
             </button>
