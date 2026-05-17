@@ -25,6 +25,7 @@ export default function DashboardPage({ setCurrent }) {
   const [quickForm, setQuickForm] = useState({ type: '', nombre: '', telefono: '', correo: '', tipo: 'Cliente' })
   const [savingQuick, setSavingQuick] = useState(false)
   const [quickMsg, setQuickMsg] = useState(null)
+  const [profile, setProfile] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -114,6 +115,14 @@ export default function DashboardPage({ setCurrent }) {
       setHoyList(realHoyList)
       setSemanaList(realSemanaList)
       setAtrasados(realAtrasadosList)
+
+      // Cargar perfil del técnico firmante
+      const { data: perfilData } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+      setProfile(perfilData || null)
     } catch (err) {
       console.error('Error cargando datos del dashboard:', err)
     } finally {
@@ -203,6 +212,16 @@ export default function DashboardPage({ setCurrent }) {
         {/* Isologotipo corporativo decorativo en Desktop */}
         <img className="desktop-brand-logo" src="/isologotipo.png" alt="Mantenizapp" style={{ height: '48px', objectFit: 'contain', opacity: 0.9 }} />
       </div>
+
+      {/* BANNER RECOMENDACIÓN PERFIL INCOMPLETO */}
+      {(!profile || !profile.nombre) && (
+        <div style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)', color: 'var(--accent)', padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <strong>Completa tu Perfil Profesional:</strong> Dirígete a la pestaña de <strong>Perfil</strong> para completar tus datos profesionales. Esto permitirá que los mensajes y documentos lleven tu firma real y grado profesional de forma automática.
+          </div>
+        </div>
+      )}
 
       {/* ATAJOS OPERACIONALES RÁPIDOS */}
       <div style={{ marginBottom: '28px' }}>
@@ -324,8 +343,10 @@ export default function DashboardPage({ setCurrent }) {
             {clientesList
               .filter(c => c.nombre.toLowerCase().includes(searchClient.toLowerCase()))
               .map(c => {
-                const formattedWaText = encodeURIComponent(`Estimado *${c.nombre}*, le escribimos desde *Mantenizapp* para hacer seguimiento a sus mantenimientos preventivos. ¿Nos confirma si tiene disponibilidad esta semana para coordinar la visita técnica? Quedamos atentos.`);
-                const formattedMailBody = encodeURIComponent(`Estimado ${c.nombre},\n\nLe escribimos desde Mantenizapp para dar seguimiento a los mantenimientos preventivos de sus equipos.\n\nPor favor, confírmenos si tiene disponibilidad esta semana para coordinar la fecha de la visita.\n\nAtentamente,\nServicio Técnico Mantenizapp`);
+                const techName = profile ? `${profile.nombre || ''} ${profile.apellido || ''}`.trim() : 'su técnico'
+                const techProf = profile?.grado_profesion ? ` (${profile.grado_profesion})` : ''
+                const formattedWaText = encodeURIComponent(`Estimado *${c.nombre}*, le escribe *${techName}*${techProf} para hacer seguimiento a sus mantenimientos preventivos. ¿Nos confirma si tiene disponibilidad esta semana para coordinar la visita técnica? Quedamos atentos.`);
+                const formattedMailBody = encodeURIComponent(`Estimado ${c.nombre},\n\nLe escribe ${techName}${techProf} para dar seguimiento a los mantenimientos preventivos de sus equipos.\n\nPor favor, confírmenos si tiene disponibilidad esta semana para coordinar la fecha de la visita.\n\nAtentamente,\n${techName}`);
                 
                 return (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-base)', borderRadius: '10px', border: '1px solid var(--border)' }}>
@@ -432,10 +453,13 @@ export default function DashboardPage({ setCurrent }) {
               }
 
               // Mensaje detallado: su equipo (nombre) su último mantenimiento fue (fecha) y ya está pronto a que sea , quisiera agendar.
-              const waTextRaw = `Estimado *${cliente.nombre}*, le escribimos desde *Mantenizapp*. Le informamos que su equipo *${eq.nombre}* tuvo su último mantenimiento el *${eq.ultimo_mantenimiento || '—'}* y ya está pronto a que sea el siguiente (Próximo mantenimiento programado: *${eq.proximo_mantenimiento || 'Sin programar'}*). Quisiera agendar su próxima visita técnica. ¿Me confirma su disponibilidad? Quedamos atentos.`
+              const techName = profile ? `${profile.nombre || ''} ${profile.apellido || ''}`.trim() : 'su técnico'
+              const techProf = profile?.grado_profesion ? ` (${profile.grado_profesion})` : ''
+              
+              const waTextRaw = `Estimado *${cliente.nombre}*, le escribe *${techName}*${techProf}. Le informo que su equipo *${eq.nombre}* tuvo su último mantenimiento el *${eq.ultimo_mantenimiento || '—'}* y ya está pronto a que sea el siguiente (Próximo mantenimiento programado: *${eq.proximo_mantenimiento || 'Sin programar'}*). Quisiera agendar su próxima visita técnica. ¿Me confirma su disponibilidad? Quedamos atentos.`
               const formattedWaText = encodeURIComponent(waTextRaw)
               
-              const mailBodyRaw = `Estimado ${cliente.nombre},\n\nLe escribimos de Mantenizapp para informarle que su equipo ${eq.nombre} tuvo su último mantenimiento el ${eq.ultimo_mantenimiento || '—'} y ya está pronto a que sea el siguiente (Próximo mantenimiento programado: ${eq.proximo_mantenimiento || 'Sin programar'}).\n\nQuisiera agendar su próxima visita técnica para garantizar su correcto funcionamiento. ¿Nos confirma qué día y hora le convienen?\n\nQuedamos atentos.\n\nAtentamente,\nServicio Técnico Mantenizapp`
+              const mailBodyRaw = `Estimado ${cliente.nombre},\n\nLe escribe ${techName}${techProf}.\n\nLe informo que su equipo ${eq.nombre} tuvo su último mantenimiento el ${eq.ultimo_mantenimiento || '—'} y ya está pronto a que sea el siguiente (Próximo mantenimiento programado: ${eq.proximo_mantenimiento || 'Sin programar'}).\n\nQuisiera agendar su próxima visita técnica para garantizar su correcto funcionamiento. ¿Nos confirma qué día y hora le convienen?\n\nQuedamos atentos.\n\nAtentamente,\n${techName}`
               const formattedMailBody = encodeURIComponent(mailBodyRaw)
 
               return (

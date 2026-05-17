@@ -34,7 +34,25 @@ export default function InformesPage() {
   useEffect(() => {
     fetchInformes()
     fetchClientes()
+    loadProfile()
   }, [])
+
+  const loadProfile = async () => {
+    try {
+      const { data } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (data) {
+        setField('tecnico', `${data.nombre || ''} ${data.apellido || ''}`.trim() || user?.email)
+      } else {
+        setField('tecnico', user?.email || '')
+      }
+    } catch (err) {
+      console.error('Error al cargar perfil:', err)
+    }
+  }
 
   const fetchInformes = async () => {
     setLoading(true)
@@ -103,37 +121,56 @@ export default function InformesPage() {
     setSaving(false)
   }
 
-  const descargarPDF = (data) => {
+  const descargarPDF = async (data) => {
+    // Intentar buscar los datos del perfil del emisor para más formalidad técnica
+    let techDoc = ''
+    let techProf = ''
+    try {
+      const { data: profile } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', data.user_id || user.id)
+        .maybeSingle()
+      if (profile) {
+        techDoc = profile.documento_identidad ? `Doc. Identidad: ${profile.documento_identidad}` : ''
+        techProf = profile.grado_profesion || ''
+      }
+    } catch (err) {
+      console.error('Error cargando perfil para el PDF:', err)
+    }
+
     const doc = new jsPDF()
 
-    // Header Background - slate-900 (#0f172a)
-    doc.setFillColor(15, 23, 42)
-    doc.rect(0, 0, 210, 42, 'F')
-
-    // Header Branding
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(22)
+    // Cabecera Minimalista
+    doc.setTextColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.text('⚡ Mantenizapp', 14, 18)
+    doc.setFontSize(18)
+    doc.text('INFORME TÉCNICO DE SERVICIO', 14, 20)
     
-    doc.setFontSize(9)
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(148, 163, 184) // slate-400
-    doc.text('SISTEMA INTEGRAL DE MANTENIMIENTO Y CONTROL', 14, 26)
-    doc.text('INFORME TÉCNICO DE SERVICIO', 14, 34)
+    doc.setTextColor(100, 116, 139) // Slate gray
+    if (techProf) {
+      doc.text(techProf.toUpperCase(), 14, 25)
+    }
+    
+    // Thin separating technical line
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.8)
+    doc.line(14, 29, 196, 29)
 
-    // Document Meta
-    doc.setTextColor(255, 255, 255)
+    // Document Meta (Nro y Fecha)
+    doc.setTextColor(0, 0, 0)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text(`INFORME N° ${String(data.id || 'S/N').substring(0, 8).toUpperCase()}`, 145, 18)
+    doc.text(`INFORME N° ${String(data.id || 'S/N').substring(0, 8).toUpperCase()}`, 142, 20)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(148, 163, 184)
-    doc.text(`Fecha: ${data.fecha}`, 145, 26)
+    doc.setFontSize(8.5)
+    doc.setTextColor(100, 116, 139)
+    doc.text(`Fecha Emisión: ${data.fecha}`, 142, 25)
 
-    doc.setTextColor(15, 23, 42)
-    let y = 52
+    doc.setTextColor(0, 0, 0)
+    let y = 35
 
     // Datos del equipo / servicio
     autoTable(doc, {
@@ -146,92 +183,122 @@ export default function InformesPage() {
         ['Serial / Código', data.serial || '—'],
         ['Técnico Responsable', data.tecnico || '—'],
       ],
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', halign: 'left', fontSize: 9.5 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50, fillColor: [248, 250, 252] } },
-      styles: { fontSize: 9, cellPadding: 4.5 },
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8.5 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50, fillColor: [241, 245, 249] } },
+      styles: { fontSize: 8.5, cellPadding: 4, lineColor: [220, 220, 220], lineWidth: 0.1 },
       theme: 'grid'
     })
     y = doc.lastAutoTable.finalY + 10
 
     // Diagnóstico
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
+    doc.setFontSize(10)
     doc.text('1. DIAGNÓSTICO TÉCNICO', 14, y)
-    doc.setFillColor(59, 130, 246) // blue-500
-    doc.rect(14, y + 2, 15, 0.8, 'F')
+    doc.setLineWidth(0.4)
+    doc.setDrawColor(0, 0, 0)
+    doc.line(14, y + 2, 29, y + 2)
     
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9.5)
-    doc.setTextColor(71, 85, 105)
+    doc.setFontSize(9)
+    doc.setTextColor(51, 65, 85)
     const diagLines = doc.splitTextToSize(data.diagnostico || '—', 182)
-    doc.text(diagLines, 14, y + 10)
-    y += 10 + diagLines.length * 5.5 + 4
+    doc.text(diagLines, 14, y + 8)
+    y += 8 + diagLines.length * 5.2 + 4
+
+    // Check for page overflow
+    if (y > 260) {
+      doc.addPage()
+      y = 20
+    }
 
     // Trabajos
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(15, 23, 42)
+    doc.setFontSize(10)
+    doc.setTextColor(0, 0, 0)
     doc.text('2. TRABAJOS REALIZADOS', 14, y)
-    doc.setFillColor(59, 130, 246)
-    doc.rect(14, y + 2, 15, 0.8, 'F')
+    doc.line(14, y + 2, 29, y + 2)
     
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9.5)
-    doc.setTextColor(71, 85, 105)
+    doc.setFontSize(9)
+    doc.setTextColor(51, 65, 85)
     const trabLines = doc.splitTextToSize(data.trabajos_realizados || data.trabajosRealizados || '—', 182)
-    doc.text(trabLines, 14, y + 10)
-    y += 10 + trabLines.length * 5.5 + 4
+    doc.text(trabLines, 14, y + 8)
+    y += 8 + trabLines.length * 5.2 + 4
+
+    // Check for page overflow
+    if (y > 260) {
+      doc.addPage()
+      y = 20
+    }
 
     // Materiales
     if (data.materiales_usados || data.materialesUsados) {
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.setTextColor(15, 23, 42)
-      doc.text('3. REUESTOS Y MATERIALES UTILIZADOS', 14, y)
-      doc.setFillColor(59, 130, 246)
-      doc.rect(14, y + 2, 15, 0.8, 'F')
+      doc.setFontSize(10)
+      doc.setTextColor(0, 0, 0)
+      doc.text('3. REPUESTOS Y MATERIALES UTILIZADOS', 14, y)
+      doc.line(14, y + 2, 29, y + 2)
       
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9.5)
-      doc.setTextColor(71, 85, 105)
+      doc.setFontSize(9)
+      doc.setTextColor(51, 65, 85)
       const matLines = doc.splitTextToSize(data.materiales_usados || data.materialesUsados, 182)
-      doc.text(matLines, 14, y + 10)
-      y += 10 + matLines.length * 5.5 + 4
+      doc.text(matLines, 14, y + 8)
+      y += 8 + matLines.length * 5.2 + 4
+    }
+
+    // Check for page overflow
+    if (y > 260) {
+      doc.addPage()
+      y = 20
     }
 
     // Observaciones
     if (data.observaciones) {
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.setTextColor(15, 23, 42)
+      doc.setFontSize(10)
+      doc.setTextColor(0, 0, 0)
       doc.text('4. OBSERVACIONES Y RECOMENDACIONES', 14, y)
-      doc.setFillColor(59, 130, 246)
-      doc.rect(14, y + 2, 15, 0.8, 'F')
+      doc.line(14, y + 2, 29, y + 2)
       
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9.5)
-      doc.setTextColor(71, 85, 105)
+      doc.setFontSize(9)
+      doc.setTextColor(51, 65, 85)
       const obsLines = doc.splitTextToSize(data.observaciones, 182)
-      doc.text(obsLines, 14, y + 10)
-      y += 10 + obsLines.length * 5.5 + 4
+      doc.text(obsLines, 14, y + 8)
+      y += 8 + obsLines.length * 5.2 + 4
     }
 
     // Firmas
-    y += 16
+    y += 12
     
     // Safety check for multi-page overflow
-    if (y > 260) {
+    if (y > 250) {
       doc.addPage()
       y = 30
     }
     
-    doc.setDrawColor(203, 213, 225) // slate-300
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.3)
     doc.line(14, y, 80, y)
     doc.line(130, y, 196, y)
-    doc.setFontSize(8.5)
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(71, 85, 105)
-    doc.text('Firma del Técnico Autorizado', 14, y + 5)
+    doc.setTextColor(0, 0, 0)
+    doc.text(data.tecnico || 'Firma del Técnico Responsable', 14, y + 5)
+    if (techProf) {
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 116, 139)
+      doc.text(techProf, 14, y + 9)
+    }
+    if (techDoc) {
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 116, 139)
+      doc.text(techDoc, 14, y + 13)
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
     doc.text('Firma de Conformidad Cliente', 130, y + 5)
 
     doc.save(`informe_${data.cliente?.replace(/\s+/g, '_') || 'informe'}_${data.fecha}.pdf`)

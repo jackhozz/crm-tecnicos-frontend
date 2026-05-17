@@ -33,7 +33,25 @@ export default function PresupuestosPage() {
   useEffect(() => {
     fetchPresupuestos()
     fetchClientes()
+    loadProfile()
   }, [])
+
+  const loadProfile = async () => {
+    try {
+      const { data } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (data) {
+        setField('nombreEmisor', `${data.nombre || ''} ${data.apellido || ''}`.trim() || user?.email)
+      } else {
+        setField('nombreEmisor', user?.email || '')
+      }
+    } catch (err) {
+      console.error('Error al cargar perfil:', err)
+    }
+  }
 
   const fetchPresupuestos = async () => {
     setLoading(true)
@@ -128,114 +146,154 @@ export default function PresupuestosPage() {
     setSaving(false)
   }
 
-  const descargarPDF = (data) => {
+  const descargarPDF = async (data) => {
+    // Intentar buscar los datos del perfil del emisor para más formalidad técnica
+    let techDoc = ''
+    let techProf = ''
+    let techTelf = ''
+    let techMail = ''
+    try {
+      const { data: profile } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', data.user_id || user.id)
+        .maybeSingle()
+      if (profile) {
+        techDoc = profile.documento_identidad ? `Doc. Identidad: ${profile.documento_identidad}` : ''
+        techProf = profile.grado_profesion || ''
+        techTelf = profile.telefono ? `Telf: ${profile.telefono}` : ''
+        techMail = profile.correo_profesional ? `Email: ${profile.correo_profesional}` : ''
+      }
+    } catch (err) {
+      console.error('Error cargando perfil emisor para el PDF:', err)
+    }
+
     const doc = new jsPDF()
     const items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items
 
-    // Header Background - slate-900 (#0f172a)
-    doc.setFillColor(15, 23, 42)
-    doc.rect(0, 0, 210, 42, 'F')
-
-    // Header Branding
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(22)
+    // Cabecera Minimalista
+    doc.setTextColor(0, 0, 0)
     doc.setFont('helvetica', 'bold')
-    doc.text('⚡ Mantenizapp', 14, 18)
+    doc.setFontSize(18)
+    doc.text('PRESUPUESTO DE SERVICIO TÉCNICO', 14, 20)
     
-    doc.setFontSize(9)
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(148, 163, 184) // slate-400
-    doc.text('SISTEMA INTEGRAL DE MANTENIMIENTO Y CONTROL', 14, 26)
-    doc.text('PRESUPUESTO TÉCNICO', 14, 34)
+    doc.setTextColor(100, 116, 139) // Slate gray
+    if (techProf) {
+      doc.text(techProf.toUpperCase(), 14, 25)
+    }
+    
+    // Thin separating technical line
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.8)
+    doc.line(14, 29, 196, 29)
 
-    // Document Meta
-    doc.setTextColor(255, 255, 255)
+    // Document Meta (Nro y Fecha)
+    doc.setTextColor(0, 0, 0)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text(`PRESUPUESTO N° ${String(data.id || 'S/N').substring(0, 8).toUpperCase()}`, 145, 18)
+    doc.text(`NÚMERO: ${String(data.id || 'S/N').substring(0, 8).toUpperCase()}`, 142, 20)
     doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(100, 116, 139)
+    doc.text(`Fecha Emisión: ${data.fecha}`, 142, 25)
+
+    // Cliente & Emisor details in a nice card look (Grayscale border and white background)
+    let y = 35
+    doc.setDrawColor(100, 116, 139) // Neutral gray
+    doc.setLineWidth(0.3)
+    doc.setFillColor(255, 255, 255) // Pure White
+    doc.roundedRect(14, y, 182, 38, 2, 2, 'FD')
+
     doc.setFontSize(9)
-    doc.setTextColor(148, 163, 184)
-    doc.text(`Fecha: ${data.fecha}`, 145, 26)
-
-    doc.setTextColor(15, 23, 42)
-
-    // Cliente & Emisor details in a nice card look
-    let y = 52
-    doc.setDrawColor(226, 232, 240) // slate-200
-    doc.setFillColor(248, 250, 252) // slate-50
-    doc.roundedRect(14, y, 182, 34, 4, 4, 'FD')
-
-    doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(15, 23, 42)
-    doc.text('INFORMACIÓN GENERAL', 20, y + 8)
+    doc.setTextColor(0, 0, 0)
+    doc.text('DATOS DE EMISIÓN', 20, y + 7)
 
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(71, 85, 105)
-    doc.text(`Técnico Emisor: ${data.nombre_emisor || '—'}`, 20, y + 16)
-    doc.text(`Cliente / Receptor: ${data.nombre_receptor}`, 20, y + 24)
+    doc.setFontSize(8)
+    doc.setTextColor(30, 41, 59)
     
-    // Título en la parte derecha
+    // Técnico Emisor details
+    doc.text(`Prestador: ${data.nombre_emisor || '—'}`, 20, y + 14)
+    if (techProf) doc.text(`Grado/Profesión: ${techProf}`, 20, y + 20)
+    if (techDoc) doc.text(techDoc, 20, y + 26)
+    
+    // Cliente / Receptor
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(15, 23, 42)
-    doc.text('Trabajo a Realizar:', 110, y + 8)
+    doc.text('CLIENTE / RECEPTOR', 110, y + 7)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(71, 85, 105)
-    const titleLines = doc.splitTextToSize(data.titulo || '—', 80)
-    doc.text(titleLines, 110, y + 16)
+    doc.text(`Nombre/Razón: ${data.nombre_receptor}`, 110, y + 14)
+    if (techTelf || techMail) {
+      doc.text('Contacto Prestador:', 20, y + 32)
+      doc.text(`${techTelf}  |  ${techMail}`, 52, y + 32)
+    }
 
-    y += 44
+    y += 46
+
+    // Título del trabajo a realizar
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`TRABAJO: ${data.titulo?.toUpperCase()}`, 14, y)
+    
+    // Small underline
+    doc.setLineWidth(0.4)
+    doc.line(14, y + 2, 40, y + 2)
+
+    y += 8
 
     // Descripción
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(15, 23, 42)
-    doc.text('DETALLE Y DESCRIPCIÓN DE LA OBRA', 14, y)
-    
-    // Underline accent bar
-    doc.setFillColor(59, 130, 246) // blue-500
-    doc.rect(14, y + 2, 20, 1, 'F')
+    doc.setFontSize(9.5)
+    doc.setTextColor(0, 0, 0)
+    doc.text('ALCANCE Y DETALLE DE LA OBRA', 14, y)
 
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9.5)
-    doc.setTextColor(71, 85, 105) // slate-600
+    doc.setFontSize(8.5)
+    doc.setTextColor(51, 65, 85)
     const descLines = doc.splitTextToSize(data.descripcion_obra || '—', 182)
-    doc.text(descLines, 14, y + 10)
+    doc.text(descLines, 14, y + 7)
     
-    const afterDesc = y + 10 + descLines.length * 5.5
+    const afterDesc = y + 7 + descLines.length * 5.2
 
     // Tabla de items
     autoTable(doc, {
       startY: afterDesc + 8,
-      head: [['#', 'Descripción del Trabajo / Materiales', 'Monto (USD)']],
+      head: [['Pos.', 'Descripción de Actividades / Suministros', 'Monto']],
       body: items.map((it, i) => [i + 1, it.descripcion, `$${parseFloat(it.precio || 0).toFixed(2)}`]),
-      foot: [['', 'VALOR TOTAL DEL PRESUPUESTO', `$${parseFloat(data.total || 0).toFixed(2)}`]],
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      footStyles: { fillColor: [239, 246, 255], textColor: [29, 78, 216], fontStyle: 'bold', fontSize: 10 }, // Blue-50 theme
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      styles: { fontSize: 9, cellPadding: 5 },
-      theme: 'striped'
+      foot: [['', 'TOTAL PRESUPUESTO (USD)', `$${parseFloat(data.total || 0).toFixed(2)}`]],
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+      footStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 9 }, // White/Light gray theme
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      styles: { fontSize: 8, cellPadding: 4, lineColor: [220, 220, 220], lineWidth: 0.1 },
+      theme: 'grid'
     })
 
     // Términos & Firma
-    const finalY = doc.lastAutoTable.finalY + 16
+    const finalY = doc.lastAutoTable.finalY + 12
     
     // Terms & Conditions block
-    doc.setFontSize(8)
-    doc.setTextColor(148, 163, 184)
+    doc.setFontSize(7.5)
+    doc.setTextColor(100, 116, 139)
     doc.text('Nota: Este presupuesto tiene una validez de 15 días a partir de la fecha de emisión. Los precios incluyen materiales y mano de obra especificados.', 14, finalY)
 
     // Signature
-    const sigY = finalY + 18
-    doc.setDrawColor(203, 213, 225) // slate-300
+    const sigY = finalY + 16
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.3)
     doc.line(14, sigY, 70, sigY)
-    doc.setFontSize(8.5)
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(71, 85, 105)
-    doc.text('Firma del Técnico Autorizado', 14, sigY + 5)
-    
+    doc.setTextColor(0, 0, 0)
+    doc.text(data.nombre_emisor || 'Firma del Técnico Autorizado', 14, sigY + 4)
+    if (techProf) {
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 116, 139)
+      doc.text(techProf, 14, sigY + 8)
+    }
+
     doc.save(`presupuesto_${data.titulo?.replace(/\s+/g, '_') || 'doc'}.pdf`)
   }
 

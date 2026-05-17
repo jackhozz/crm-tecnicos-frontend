@@ -130,6 +130,78 @@ function PerfilPage() {
   const { user, signOut } = useAuth()
   const initials = user?.email?.slice(0, 2).toUpperCase() || '??'
   const [isDark, setIsDark] = React.useState(document.documentElement.classList.contains('dark'))
+  const [profileForm, setProfileForm] = React.useState({
+    nombre: '',
+    apellido: '',
+    documentoIdentidad: '',
+    gradoProfesion: '',
+    competencias: '',
+    telefono: '',
+    correoProfesional: ''
+  })
+  const [fetching, setFetching] = React.useState(true)
+  const [saving, setSaving] = React.useState(false)
+  const [msg, setMsg] = React.useState(null)
+
+  React.useEffect(() => {
+    if (user) {
+      fetchProfile()
+    }
+  }, [user])
+
+  const fetchProfile = async () => {
+    setFetching(true)
+    try {
+      const { data, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (error) throw error
+      if (data) {
+        setProfileForm({
+          nombre: data.nombre || '',
+          apellido: data.apellido || '',
+          documentoIdentidad: data.documento_identidad || '',
+          gradoProfesion: data.grado_profesion || '',
+          competencias: data.competencias || '',
+          telefono: data.telefono || '',
+          correoProfesional: data.correo_profesional || ''
+        })
+      }
+    } catch (err) {
+      console.error('Error al cargar perfil:', err)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setMsg(null)
+    try {
+      const { error } = await supabase.from('perfiles').upsert({
+        id: user.id,
+        nombre: profileForm.nombre,
+        apellido: profileForm.apellido,
+        documento_identidad: profileForm.documentoIdentidad,
+        grado_profesion: profileForm.gradoProfesion,
+        competencias: profileForm.competencias,
+        telefono: profileForm.telefono,
+        correo_profesional: profileForm.correoProfesional,
+        updated_at: new Date()
+      })
+      if (error) throw error
+      setMsg({ type: 'success', text: 'Perfil actualizado con éxito.' })
+    } catch (err) {
+      console.error('Error al guardar perfil:', err)
+      setMsg({ type: 'error', text: err.message || 'Error al guardar.' })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const toggleTheme = () => {
     const newDark = !isDark
@@ -145,49 +217,170 @@ function PerfilPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Mi Perfil</h1>
-        <p className="page-sub">Configuración de cuenta y sistema</p>
+        <p className="page-sub">Completa tus datos profesionales para personalizar tus mensajes y documentos técnicos</p>
       </div>
 
-      <div className="card" style={{ maxWidth: 500, margin: '20px auto 0', textAlign: 'center', padding: '40px 24px' }}>
-        <div style={{ width: 80, height: 80, background: 'var(--accent)', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 'bold', margin: '0 auto 20px', boxShadow: '0 4px 12px var(--accent-soft)' }}>
-          {initials}
-        </div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Técnico Autorizado</h2>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 28 }}>{user?.email}</p>
-
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, textAlign: 'left', marginBottom: 28 }}>
-          <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 16, letterSpacing: '0.05em' }}>Preferencias del sistema</h3>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Modo Oscuro</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cambiar apariencia visual</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginTop: '20px' }}>
+        {/* LADO IZQUIERDO: Tarjeta Resumen y Preferencias */}
+        <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: 'fit-content' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ width: 80, height: 80, background: 'var(--accent)', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 'bold', margin: '0 auto 16px', boxShadow: '0 4px 12px var(--accent-soft)' }}>
+              {profileForm.nombre ? (profileForm.nombre[0] + (profileForm.apellido ? profileForm.apellido[0] : '')).toUpperCase() : initials}
             </div>
-            <button className="btn btn-secondary" onClick={toggleTheme} style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {isDark ? (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                  <span>Claro</span>
-                </>
-              ) : (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                  <span>Oscuro</span>
-                </>
-              )}
-            </button>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)' }}>
+              {profileForm.nombre ? `${profileForm.nombre} ${profileForm.apellido}` : 'Técnico Especialista'}
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{profileForm.gradoProfesion || 'Perfil no completado'}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{user?.email}</p>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Plataforma Mantenizapp</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Versión móvil y web optimizada</div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, textAlign: 'left', marginBottom: 24 }}>
+            <h3 style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 16, letterSpacing: '0.05em' }}>Preferencias del sistema</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Modo Oscuro</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cambiar apariencia visual</div>
+              </div>
+              <button className="btn btn-secondary" onClick={toggleTheme} style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isDark ? (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <span>Claro</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <span>Oscuro</span>
+                  </>
+                )}
+              </button>
             </div>
-            <span className="badge badge-blue">v2.1.0</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Plataforma Profesional</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Mantenizapp Core Engine</div>
+              </div>
+              <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>v2.1.0</span>
+            </div>
           </div>
+
+          <button className="btn btn-primary" onClick={signOut} style={{ width: '100%', justifyContent: 'center', background: 'var(--danger)', border: 'none', color: '#fff', fontSize: '13px', fontWeight: '700', padding: '10px' }}>
+            Cerrar Sesión
+          </button>
         </div>
 
-        <button className="btn btn-primary" onClick={signOut} style={{ width: '100%', justifyContent: 'center', background: 'var(--danger)', border: 'none', color: '#fff' }}>
-          Cerrar Sesión
-        </button>
+        {/* LADO DERECHO: Formulario de Datos Profesionales */}
+        <div className="card" style={{ padding: '24px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Datos Profesionales
+          </h3>
+
+          {msg && (
+            <div 
+              className={msg.type === 'success' ? 'auth-success' : 'auth-error'} 
+              style={{ marginBottom: '16px', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '600' }}
+            >
+              {msg.text}
+            </div>
+          )}
+
+          {fetching ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+              <span className="spinner" />
+            </div>
+          ) : (
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Nombre *</label>
+                  <input 
+                    className="form-input" 
+                    placeholder="Tu nombre" 
+                    value={profileForm.nombre} 
+                    onChange={e => setProfileForm(f => ({ ...f, nombre: e.target.value }))} 
+                    required
+                  />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Apellido *</label>
+                  <input 
+                    className="form-input" 
+                    placeholder="Tu apellido" 
+                    value={profileForm.apellido} 
+                    onChange={e => setProfileForm(f => ({ ...f, apellido: e.target.value }))} 
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Documento de Identidad (Cédula/DNI)</label>
+                <input 
+                  className="form-input" 
+                  placeholder="Ej: V-12345678" 
+                  value={profileForm.documentoIdentidad} 
+                  onChange={e => setProfileForm(f => ({ ...f, documentoIdentidad: e.target.value }))} 
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Grado Académico o Profesión</label>
+                <input 
+                  className="form-input" 
+                  placeholder="Ej: Técnico de Climatización Superior" 
+                  value={profileForm.gradoProfesion} 
+                  onChange={e => setProfileForm(f => ({ ...f, gradoProfesion: e.target.value }))} 
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Teléfono Profesional</label>
+                <input 
+                  className="form-input" 
+                  placeholder="Ej: +584120000000" 
+                  value={profileForm.telefono} 
+                  onChange={e => setProfileForm(f => ({ ...f, telefono: e.target.value }))} 
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Correo Profesional</label>
+                <input 
+                  className="form-input" 
+                  type="email"
+                  placeholder="Tu correo de contacto" 
+                  value={profileForm.correoProfesional} 
+                  onChange={e => setProfileForm(f => ({ ...f, correoProfesional: e.target.value }))} 
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Competencias y Especialidades</label>
+                <textarea 
+                  className="form-input" 
+                  rows="3"
+                  placeholder="Ej: Mantenimiento VRF, sistemas chiller, electricidad y controles de automatización." 
+                  value={profileForm.competencias} 
+                  onChange={e => setProfileForm(f => ({ ...f, competencias: e.target.value }))}
+                  style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={saving} 
+                style={{ width: '100%', justifyContent: 'center', marginTop: '10px', padding: '10px', fontSize: '13px', fontWeight: '750', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                {saving ? <span className="spinner" /> : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                )}
+                {saving ? 'Guardando cambios...' : 'Guardar Perfil'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )
