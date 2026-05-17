@@ -162,6 +162,20 @@ function PerfilPage() {
     }
   }
 
+  // Configuración interactiva del nivel de prioridad para alertas de tareas
+  const [todoAlertLevel, setTodoAlertLevel] = React.useState(() => {
+    return localStorage.getItem('mantenizapp_todo_alert_level') || 'Alta'
+  })
+
+  const handleTodoAlertLevelChange = (e) => {
+    const val = e.target.value
+    setTodoAlertLevel(val)
+    localStorage.setItem('mantenizapp_todo_alert_level', val)
+    if (window.scanNotifications) {
+      window.scanNotifications()
+    }
+  }
+
   React.useEffect(() => {
     if (user) {
       fetchProfile()
@@ -306,6 +320,23 @@ function PerfilPage() {
                 <option value="7">7 días antes</option>
                 <option value="15">15 días antes</option>
                 <option value="30">30 días antes</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Alertas de Tareas</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Filtrar alertas según prioridad de tarea</div>
+              </div>
+              <select 
+                value={todoAlertLevel} 
+                onChange={handleTodoAlertLevelChange} 
+                className="form-input" 
+                style={{ width: '115px', padding: '6px 8px', fontSize: '12px', height: 'auto', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                <option value="Alta">Solo Alta</option>
+                <option value="Alta y Media">Alta y Media</option>
+                <option value="Todas">Todas</option>
+                <option value="Ninguna">Ninguna</option>
               </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -890,25 +921,39 @@ function AppLayout() {
           })
         }
 
-        // D. Escanear tareas sin completar de prioridad Alta de la tabla 'todos'
+        // D. Escanear tareas sin completar según el filtro de alertas del usuario
         try {
-          const { data: listTodos, error: todoErr } = await supabase
-            .from('todos')
-            .select('*')
-            .eq('completed', false)
-            .eq('priority', 'Alta')
+          const todoAlertLevel = localStorage.getItem('mantenizapp_todo_alert_level') || 'Alta'
+          if (todoAlertLevel !== 'Ninguna') {
+            const { data: listTodos, error: todoErr } = await supabase
+              .from('todos')
+              .select('*')
+              .eq('completed', false)
 
-          if (listTodos && !todoErr) {
-            listTodos.forEach(todo => {
-              generatedNotifs.push({
-                id: `todo-${todo.id}`,
-                title: '📌 Tarea Pendiente Urgente',
-                desc: `Recordatorio: Tienes pendiente la tarea "${todo.text}".`,
-                time: 'Urgente',
-                read: false,
-                target: 'dashboard'
+            if (listTodos && !todoErr) {
+              listTodos.forEach(todo => {
+                let shouldAlert = false
+                if (todoAlertLevel === 'Todas') {
+                  shouldAlert = true
+                } else if (todoAlertLevel === 'Alta y Media') {
+                  shouldAlert = todo.priority === 'Alta' || todo.priority === 'Media'
+                } else {
+                  // Default: Solo Alta
+                  shouldAlert = todo.priority === 'Alta'
+                }
+
+                if (shouldAlert) {
+                  generatedNotifs.push({
+                    id: `todo-${todo.id}`,
+                    title: `📌 Tarea Pendiente (${todo.priority})`,
+                    desc: `Recordatorio: Tienes pendiente la tarea "${todo.text}".`,
+                    time: `Prioridad ${todo.priority}`,
+                    read: false,
+                    target: 'dashboard'
+                  })
+                }
               })
-            })
+            }
           }
         } catch (err) {
           console.warn('Error escaneando tareas para notificaciones:', err)
