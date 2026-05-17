@@ -9,6 +9,7 @@ const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
 const emptyItem = () => ({ id: Date.now(), descripcion: '', precio: '' })
 
 const defaultForm = () => ({
+  clienteId: '',
   nombreEmisor: '',
   nombreReceptor: '',
   fecha: new Date().toISOString().split('T')[0],
@@ -21,6 +22,7 @@ export default function PresupuestosPage() {
   const { user } = useAuth()
   const [form, setForm] = useState(defaultForm())
   const [presupuestos, setPresupuestos] = useState([])
+  const [clientes, setClientes] = useState([])
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPrompt, setAiPrompt] = useState('')
@@ -28,16 +30,27 @@ export default function PresupuestosPage() {
   const [msg, setMsg] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'new'
 
-  useEffect(() => { fetchPresupuestos() }, [])
+  useEffect(() => {
+    fetchPresupuestos()
+    fetchClientes()
+  }, [])
 
   const fetchPresupuestos = async () => {
     setLoading(true)
     const { data } = await supabase
       .from('presupuestos')
-      .select('*')
+      .select('*, clientes(nombre)')
       .order('created_at', { ascending: false })
     setPresupuestos(data || [])
     setLoading(false)
+  }
+
+  const fetchClientes = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('*')
+      .order('nombre', { ascending: true })
+    setClientes(data || [])
   }
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -94,6 +107,7 @@ export default function PresupuestosPage() {
     }
     setSaving(true)
     const { error } = await supabase.from('presupuestos').insert({
+      cliente_id: form.clienteId || null,
       nombre_emisor: form.nombreEmisor,
       nombre_receptor: form.nombreReceptor,
       fecha: form.fecha,
@@ -118,60 +132,110 @@ export default function PresupuestosPage() {
     const doc = new jsPDF()
     const items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items
 
-    // Header
-    doc.setFillColor(3, 105, 161)
-    doc.rect(0, 0, 210, 40, 'F')
+    // Header Background - slate-900 (#0f172a)
+    doc.setFillColor(15, 23, 42)
+    doc.rect(0, 0, 210, 42, 'F')
+
+    // Header Branding
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(22)
     doc.setFont('helvetica', 'bold')
-    doc.text('❄ TermoControl Hub', 14, 20)
-    doc.setFontSize(10)
+    doc.text('⚡ Mantenizapp', 14, 18)
+    
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.text('PRESUPUESTO TÉCNICO', 14, 30)
-    doc.text(`N° ${data.id || 'S/N'}`, 160, 20)
-    doc.text(`Fecha: ${data.fecha}`, 160, 30)
+    doc.setTextColor(148, 163, 184) // slate-400
+    doc.text('SISTEMA INTEGRAL DE MANTENIMIENTO Y CONTROL', 14, 26)
+    doc.text('PRESUPUESTO TÉCNICO', 14, 34)
 
-    doc.setTextColor(30, 30, 30)
-
-    // Datos
-    doc.setFontSize(11)
+    // Document Meta
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text('DATOS DEL PRESUPUESTO', 14, 55)
+    doc.text(`PRESUPUESTO N° ${String(data.id || 'S/N').substring(0, 8).toUpperCase()}`, 145, 18)
     doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(148, 163, 184)
+    doc.text(`Fecha: ${data.fecha}`, 145, 26)
+
+    doc.setTextColor(15, 23, 42)
+
+    // Cliente & Emisor details in a nice card look
+    let y = 52
+    doc.setDrawColor(226, 232, 240) // slate-200
+    doc.setFillColor(248, 250, 252) // slate-50
+    doc.roundedRect(14, y, 182, 34, 4, 4, 'FD')
+
     doc.setFontSize(10)
-    doc.text(`Emisor: ${data.nombre_emisor || '—'}`, 14, 63)
-    doc.text(`Receptor: ${data.nombre_receptor}`, 14, 71)
-    doc.text(`Título: ${data.titulo}`, 14, 79)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15, 23, 42)
+    doc.text('INFORMACIÓN GENERAL', 20, y + 8)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(71, 85, 105)
+    doc.text(`Técnico Emisor: ${data.nombre_emisor || '—'}`, 20, y + 16)
+    doc.text(`Cliente / Receptor: ${data.nombre_receptor}`, 20, y + 24)
+    
+    // Título en la parte derecha
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15, 23, 42)
+    doc.text('Trabajo a Realizar:', 110, y + 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(71, 85, 105)
+    const titleLines = doc.splitTextToSize(data.titulo || '—', 80)
+    doc.text(titleLines, 110, y + 16)
+
+    y += 44
 
     // Descripción
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.text('DESCRIPCIÓN DE OBRA', 14, 93)
+    doc.setTextColor(15, 23, 42)
+    doc.text('DETALLE Y DESCRIPCIÓN DE LA OBRA', 14, y)
+    
+    // Underline accent bar
+    doc.setFillColor(59, 130, 246) // blue-500
+    doc.rect(14, y + 2, 20, 1, 'F')
+
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    const descLines = doc.splitTextToSize(data.descripcion_obra || '—', 180)
-    doc.text(descLines, 14, 101)
-    const afterDesc = 101 + descLines.length * 6
+    doc.setFontSize(9.5)
+    doc.setTextColor(71, 85, 105) // slate-600
+    const descLines = doc.splitTextToSize(data.descripcion_obra || '—', 182)
+    doc.text(descLines, 14, y + 10)
+    
+    const afterDesc = y + 10 + descLines.length * 5.5
 
     // Tabla de items
     autoTable(doc, {
-      startY: afterDesc + 6,
-      head: [['#', 'Descripción', 'Precio (USD)']],
+      startY: afterDesc + 8,
+      head: [['#', 'Descripción del Trabajo / Materiales', 'Monto (USD)']],
       body: items.map((it, i) => [i + 1, it.descripcion, `$${parseFloat(it.precio || 0).toFixed(2)}`]),
-      foot: [['', 'TOTAL', `$${parseFloat(data.total || 0).toFixed(2)}`]],
-      headStyles: { fillColor: [3, 105, 161], textColor: 255, fontStyle: 'bold' },
-      footStyles: { fillColor: [240, 244, 248], textColor: [3, 105, 161], fontStyle: 'bold' },
+      foot: [['', 'VALOR TOTAL DEL PRESUPUESTO', `$${parseFloat(data.total || 0).toFixed(2)}`]],
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      footStyles: { fillColor: [239, 246, 255], textColor: [29, 78, 216], fontStyle: 'bold', fontSize: 10 }, // Blue-50 theme
       alternateRowStyles: { fillColor: [248, 250, 252] },
-      styles: { fontSize: 10 },
+      styles: { fontSize: 9, cellPadding: 5 },
+      theme: 'striped'
     })
 
-    // Firma
-    const finalY = doc.lastAutoTable.finalY + 20
-    doc.setDrawColor(200, 200, 200)
-    doc.line(14, finalY, 80, finalY)
-    doc.setFontSize(9)
-    doc.text('Firma del técnico', 14, finalY + 6)
+    // Términos & Firma
+    const finalY = doc.lastAutoTable.finalY + 16
+    
+    // Terms & Conditions block
+    doc.setFontSize(8)
+    doc.setTextColor(148, 163, 184)
+    doc.text('Nota: Este presupuesto tiene una validez de 15 días a partir de la fecha de emisión. Los precios incluyen materiales y mano de obra especificados.', 14, finalY)
 
+    // Signature
+    const sigY = finalY + 18
+    doc.setDrawColor(203, 213, 225) // slate-300
+    doc.line(14, sigY, 70, sigY)
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(71, 85, 105)
+    doc.text('Firma del Técnico Autorizado', 14, sigY + 5)
+    
     doc.save(`presupuesto_${data.titulo?.replace(/\s+/g, '_') || 'doc'}.pdf`)
   }
 
@@ -195,6 +259,27 @@ export default function PresupuestosPage() {
             <input className="form-input" placeholder="Tu nombre o empresa" value={form.nombreEmisor} onChange={e => setField('nombreEmisor', e.target.value)} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Vincular Cliente (Directorio)</label>
+            <select
+              className="form-input"
+              value={form.clienteId}
+              onChange={e => {
+                const cid = e.target.value
+                const selected = clientes.find(c => c.id === cid)
+                setForm(f => ({
+                  ...f,
+                  clienteId: cid,
+                  nombreReceptor: selected ? selected.nombre : ''
+                }))
+              }}
+            >
+              <option value="">-- Escribir manual abajo --</option>
+              {clientes.map(c => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Nombre Receptor (cliente) *</label>
             <input className="form-input" placeholder="Nombre del cliente" value={form.nombreReceptor} onChange={e => setField('nombreReceptor', e.target.value)} />
           </div>
@@ -202,7 +287,7 @@ export default function PresupuestosPage() {
             <label className="form-label">Fecha *</label>
             <input type="date" className="form-input" value={form.fecha} onChange={e => setField('fecha', e.target.value)} />
           </div>
-          <div className="form-group" style={{ margin: 0 }}>
+          <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
             <label className="form-label">Título del presupuesto *</label>
             <input className="form-input" placeholder="Ej: Mantenimiento A/C Samsung 12000 BTU" value={form.titulo} onChange={e => setField('titulo', e.target.value)} />
           </div>
@@ -316,7 +401,7 @@ export default function PresupuestosPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{p.titulo}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {p.fecha} · Para: {p.nombre_receptor}
+                  {p.fecha} · Para: {p.nombre_receptor} {p.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

@@ -5,6 +5,8 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 const defaultForm = () => ({
+  clienteId: '',
+  equipoId: '',
   cliente: '',
   fecha: new Date().toISOString().split('T')[0],
   equipo: '',
@@ -22,21 +24,47 @@ export default function InformesPage() {
   const { user } = useAuth()
   const [form, setForm] = useState(defaultForm())
   const [informes, setInformes] = useState([])
+  const [clientes, setClientes] = useState([])
+  const [equipos, setEquipos] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [view, setView] = useState('list')
 
-  useEffect(() => { fetchInformes() }, [])
+  useEffect(() => {
+    fetchInformes()
+    fetchClientes()
+  }, [])
 
   const fetchInformes = async () => {
     setLoading(true)
     const { data } = await supabase
       .from('informes')
-      .select('*')
+      .select('*, clientes(nombre)')
       .order('created_at', { ascending: false })
     setInformes(data || [])
     setLoading(false)
+  }
+
+  const fetchClientes = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('*')
+      .order('nombre', { ascending: true })
+    setClientes(data || [])
+  }
+
+  const fetchEquiposPorCliente = async (clienteId) => {
+    if (!clienteId) {
+      setEquipos([])
+      return
+    }
+    const { data } = await supabase
+      .from('equipos')
+      .select('*')
+      .eq('cliente_id', clienteId)
+      .order('nombre', { ascending: true })
+    setEquipos(data || [])
   }
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -48,7 +76,19 @@ export default function InformesPage() {
     }
     setSaving(true)
     const { error } = await supabase.from('informes').insert({
-      ...form,
+      cliente_id: form.clienteId || null,
+      equipo_id: form.equipoId || null,
+      cliente: form.cliente,
+      fecha: form.fecha,
+      equipo: form.equipo,
+      marca: form.marca,
+      modelo: form.modelo,
+      serial: form.serial,
+      diagnostico: form.diagnostico,
+      trabajos_realizados: form.trabajosRealizados,
+      materiales_usados: form.materialesUsados,
+      observaciones: form.observaciones,
+      tecnico: form.tecnico,
       user_id: user.id,
     })
     if (error) {
@@ -58,6 +98,7 @@ export default function InformesPage() {
       fetchInformes()
       setView('list')
       setForm(defaultForm())
+      setEquipos([])
     }
     setSaving(false)
   }
@@ -65,90 +106,133 @@ export default function InformesPage() {
   const descargarPDF = (data) => {
     const doc = new jsPDF()
 
-    // Header
-    doc.setFillColor(3, 105, 161)
-    doc.rect(0, 0, 210, 40, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(20)
-    doc.setFont('helvetica', 'bold')
-    doc.text('❄ TermoControl Hub', 14, 18)
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.text('INFORME TÉCNICO DE SERVICIO', 14, 28)
-    doc.text(`N° ${data.id || 'S/N'}  |  Fecha: ${data.fecha}`, 14, 36)
+    // Header Background - slate-900 (#0f172a)
+    doc.setFillColor(15, 23, 42)
+    doc.rect(0, 0, 210, 42, 'F')
 
-    doc.setTextColor(30, 30, 30)
+    // Header Branding
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(22)
+    doc.setFont('helvetica', 'bold')
+    doc.text('⚡ Mantenizapp', 14, 18)
+    
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(148, 163, 184) // slate-400
+    doc.text('SISTEMA INTEGRAL DE MANTENIMIENTO Y CONTROL', 14, 26)
+    doc.text('INFORME TÉCNICO DE SERVICIO', 14, 34)
+
+    // Document Meta
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`INFORME N° ${String(data.id || 'S/N').substring(0, 8).toUpperCase()}`, 145, 18)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(148, 163, 184)
+    doc.text(`Fecha: ${data.fecha}`, 145, 26)
+
+    doc.setTextColor(15, 23, 42)
     let y = 52
 
-    // Datos del equipo
+    // Datos del equipo / servicio
     autoTable(doc, {
       startY: y,
-      head: [['DATOS DEL SERVICIO', '']],
+      head: [['INFORMACIÓN DEL SERVICIO Y EQUIPO', '']],
       body: [
-        ['Cliente', data.cliente],
-        ['Equipo', data.equipo],
+        ['Cliente / Solicitante', data.cliente],
+        ['Equipo / Sistema', data.equipo],
         ['Marca / Modelo', `${data.marca || '—'} / ${data.modelo || '—'}`],
-        ['Serial', data.serial || '—'],
-        ['Técnico', data.tecnico || '—'],
+        ['Serial / Código', data.serial || '—'],
+        ['Técnico Responsable', data.tecnico || '—'],
       ],
-      headStyles: { fillColor: [3, 105, 161], textColor: 255, fontStyle: 'bold', halign: 'left' },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
-      styles: { fontSize: 10 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', halign: 'left', fontSize: 9.5 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50, fillColor: [248, 250, 252] } },
+      styles: { fontSize: 9, cellPadding: 4.5 },
+      theme: 'grid'
     })
-    y = doc.lastAutoTable.finalY + 8
+    y = doc.lastAutoTable.finalY + 10
 
     // Diagnóstico
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.text('DIAGNÓSTICO', 14, y + 6)
+    doc.text('1. DIAGNÓSTICO TÉCNICO', 14, y)
+    doc.setFillColor(59, 130, 246) // blue-500
+    doc.rect(14, y + 2, 15, 0.8, 'F')
+    
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    const diagLines = doc.splitTextToSize(data.diagnostico || '—', 180)
-    doc.text(diagLines, 14, y + 14)
-    y += 14 + diagLines.length * 6
+    doc.setFontSize(9.5)
+    doc.setTextColor(71, 85, 105)
+    const diagLines = doc.splitTextToSize(data.diagnostico || '—', 182)
+    doc.text(diagLines, 14, y + 10)
+    y += 10 + diagLines.length * 5.5 + 4
 
     // Trabajos
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.text('TRABAJOS REALIZADOS', 14, y + 8)
+    doc.setTextColor(15, 23, 42)
+    doc.text('2. TRABAJOS REALIZADOS', 14, y)
+    doc.setFillColor(59, 130, 246)
+    doc.rect(14, y + 2, 15, 0.8, 'F')
+    
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    const trabLines = doc.splitTextToSize(data.trabajos_realizados || data.trabajosRealizados || '—', 180)
-    doc.text(trabLines, 14, y + 16)
-    y += 16 + trabLines.length * 6
+    doc.setFontSize(9.5)
+    doc.setTextColor(71, 85, 105)
+    const trabLines = doc.splitTextToSize(data.trabajos_realizados || data.trabajosRealizados || '—', 182)
+    doc.text(trabLines, 14, y + 10)
+    y += 10 + trabLines.length * 5.5 + 4
 
     // Materiales
     if (data.materiales_usados || data.materialesUsados) {
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
-      doc.text('MATERIALES USADOS', 14, y + 8)
+      doc.setTextColor(15, 23, 42)
+      doc.text('3. REUESTOS Y MATERIALES UTILIZADOS', 14, y)
+      doc.setFillColor(59, 130, 246)
+      doc.rect(14, y + 2, 15, 0.8, 'F')
+      
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      const matLines = doc.splitTextToSize(data.materiales_usados || data.materialesUsados, 180)
-      doc.text(matLines, 14, y + 16)
-      y += 16 + matLines.length * 6
+      doc.setFontSize(9.5)
+      doc.setTextColor(71, 85, 105)
+      const matLines = doc.splitTextToSize(data.materiales_usados || data.materialesUsados, 182)
+      doc.text(matLines, 14, y + 10)
+      y += 10 + matLines.length * 5.5 + 4
     }
 
     // Observaciones
     if (data.observaciones) {
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
-      doc.text('OBSERVACIONES', 14, y + 8)
+      doc.setTextColor(15, 23, 42)
+      doc.text('4. OBSERVACIONES Y RECOMENDACIONES', 14, y)
+      doc.setFillColor(59, 130, 246)
+      doc.rect(14, y + 2, 15, 0.8, 'F')
+      
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(10)
-      const obsLines = doc.splitTextToSize(data.observaciones, 180)
-      doc.text(obsLines, 14, y + 16)
-      y += 16 + obsLines.length * 6
+      doc.setFontSize(9.5)
+      doc.setTextColor(71, 85, 105)
+      const obsLines = doc.splitTextToSize(data.observaciones, 182)
+      doc.text(obsLines, 14, y + 10)
+      y += 10 + obsLines.length * 5.5 + 4
     }
 
     // Firmas
-    y += 20
-    doc.setDrawColor(180, 180, 180)
+    y += 16
+    
+    // Safety check for multi-page overflow
+    if (y > 260) {
+      doc.addPage()
+      y = 30
+    }
+    
+    doc.setDrawColor(203, 213, 225) // slate-300
     doc.line(14, y, 80, y)
     doc.line(130, y, 196, y)
-    doc.setFontSize(9)
-    doc.text('Firma del técnico', 14, y + 6)
-    doc.text('Firma del cliente', 130, y + 6)
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(71, 85, 105)
+    doc.text('Firma del Técnico Autorizado', 14, y + 5)
+    doc.text('Firma de Conformidad Cliente', 130, y + 5)
 
     doc.save(`informe_${data.cliente?.replace(/\s+/g, '_') || 'informe'}_${data.fecha}.pdf`)
   }
@@ -182,14 +266,72 @@ export default function InformesPage() {
 
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--accent)' }}>📋 Datos del cliente y equipo</div>
+          
+          <div className="grid-2" style={{ marginBottom: 16 }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Vincular Cliente (Directorio)</label>
+              <select
+                className="form-input"
+                value={form.clienteId}
+                onChange={async e => {
+                  const cid = e.target.value
+                  const selected = clientes.find(c => c.id === cid)
+                  setForm(f => ({
+                    ...f,
+                    clienteId: cid,
+                    cliente: selected ? selected.nombre : '',
+                    equipoId: '',
+                    equipo: '',
+                    marca: '',
+                    modelo: '',
+                    serial: ''
+                  }))
+                  await fetchEquiposPorCliente(cid)
+                }}
+              >
+                <option value="">-- Escribir manual --</option>
+                {clientes.map(c => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Seleccionar Equipo Vinculado</label>
+              <select
+                className="form-input"
+                value={form.equipoId}
+                disabled={!form.clienteId}
+                onChange={e => {
+                  const eid = e.target.value
+                  const selected = equipos.find(eq => eq.id === eid)
+                  setForm(f => ({
+                    ...f,
+                    equipoId: eid,
+                    equipo: selected ? (selected.nombre || selected.tipo || 'Equipo') : '',
+                    marca: selected ? (selected.marca || '') : '',
+                    modelo: selected ? (selected.modelo || '') : '',
+                    serial: selected ? (selected.serial || '') : ''
+                  }))
+                }}
+              >
+                <option value="">-- Cargar manual / Ninguno --</option>
+                {equipos.map(eq => (
+                  <option key={eq.id} value={eq.id}>{eq.nombre || eq.tipo || 'Equipo'} ({eq.marca || 'Sin marca'})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="grid-2">
             <FieldInput label="Cliente" field="cliente" placeholder="Nombre del cliente" required />
             <FieldInput label="Técnico responsable" field="tecnico" placeholder="Tu nombre" />
-            <FieldInput label="Fecha" field="fecha" placeholder="" />
+            <FieldInput label="Fecha" field="fecha" placeholder="" required />
             <div />
           </div>
-          <div className="grid-3">
-            <FieldInput label="Tipo de equipo" field="equipo" placeholder="A/C Split, Cava, etc." required />
+
+          <div className="grid-4" style={{ marginTop: 16 }}>
+            <FieldInput label="Equipo / Sistema" field="equipo" placeholder="A/C Split, Cava, etc." required />
             <FieldInput label="Marca" field="marca" placeholder="Samsung, Carrier..." />
             <FieldInput label="Modelo" field="modelo" placeholder="Modelo del equipo" />
             <FieldInput label="Serial / N° de serie" field="serial" placeholder="123456789" />
@@ -238,7 +380,7 @@ export default function InformesPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{inf.equipo}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {inf.fecha} · Cliente: {inf.cliente}
+                  {inf.fecha} · Cliente: {inf.cliente} {inf.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, maxWidth: 500 }} className="text-truncate">
                   {inf.diagnostico?.substring(0, 100)}...
