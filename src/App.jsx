@@ -526,7 +526,7 @@ function AppLayout() {
       {/* CABECERA MÓVIL EXACTA AL MOCKUP CON LOGO MEJORADO Y GRANDE */}
       <header className="mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <MantenizappLogo size={36} />
+          <img src="/logo.png" alt="Mantenizapp Logo" style={{ height: '36px', objectFit: 'contain' }} />
           <span style={{ fontSize: '18px', fontWeight: 850, color: 'var(--text-primary)', letterSpacing: '-0.03em', fontFamily: 'inherit' }}>Mantenizapp</span>
         </div>
         <div className="notification-bell" onClick={() => setShowNotifDrawer(!showNotifDrawer)}>
