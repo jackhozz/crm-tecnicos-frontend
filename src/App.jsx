@@ -394,6 +394,119 @@ function PerfilPage() {
 function AppLayout() {
   const { user, loading } = useAuth()
   const [current, setCurrent] = React.useState('dashboard')
+  const [notifications, setNotifications] = React.useState([])
+  const [showNotifDrawer, setShowNotifDrawer] = React.useState(false)
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  React.useEffect(() => {
+    if (!user) return
+
+    // Solicitar permisos de notificación push nativos
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+
+    const scanNotifications = async () => {
+      try {
+        const { data: listEquipos, error: eqErr } = await supabase
+          .from('equipos')
+          .select('*, clientes(nombre)')
+        
+        const { data: listAgenda, error: agErr } = await supabase
+          .from('agenda')
+          .select('*, equipos(nombre, clientes(nombre))')
+
+        const generatedNotifs = []
+        const todayStr = new Date().toISOString().split('T')[0]
+
+        // A. Escanear equipos para mantenimiento preventivo próximo (próximos 7 días)
+        if (listEquipos && !eqErr) {
+          listEquipos.forEach(eq => {
+            if (eq.proximo_mantenimiento) {
+              const pDate = new Date(eq.proximo_mantenimiento)
+              const diffTime = pDate - new Date()
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+              if (diffDays >= -30 && diffDays <= 7) {
+                generatedNotifs.push({
+                  id: `eq-${eq.id}-${eq.proximo_mantenimiento}`,
+                  title: '⚠️ Mantenimiento Próximo',
+                  desc: `El equipo "${eq.nombre || eq.tipo}" de "${eq.clientes?.nombre || 'Cliente'}" requiere mantenimiento pronto (${eq.proximo_mantenimiento}).`,
+                  time: diffDays < 0 ? 'Vencido' : `En ${diffDays} días`,
+                  read: false,
+                  target: 'clientes'
+                })
+              }
+            }
+          })
+        }
+
+        // B. Escanear citas agendadas de hoy
+        if (listAgenda && !agErr) {
+          listAgenda.forEach(ag => {
+            if (ag.fecha === todayStr) {
+              generatedNotifs.push({
+                id: `ag-${ag.id}`,
+                title: '📅 Cita Agendada Hoy',
+                desc: `Tienes un mantenimiento programado hoy a las ${ag.hora || 'hora no especificada'} para el equipo "${ag.equipos?.nombre || 'Equipo'}"`,
+                time: `${ag.hora || 'Hoy'}`,
+                read: false,
+                target: 'agenda'
+              })
+            }
+          })
+        }
+
+        // C. Escanear estado del perfil
+        const { data: profile } = await supabase
+          .from('perfiles')
+          .select('nombre')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!profile || !profile.nombre) {
+          generatedNotifs.push({
+            id: 'profile-tip',
+            title: '✨ Completa tu Perfil',
+            desc: 'Registra tu nombre, apellido y especialidades en Perfil para personalizar tus documentos técnicos y mensajes.',
+            time: 'Sugerencia',
+            read: false,
+            target: 'perfil'
+          })
+        }
+
+        if (generatedNotifs.length === 0) {
+          generatedNotifs.push({
+            id: 'welcome',
+            title: '🚀 ¡Mantenizapp Activo!',
+            desc: 'El sistema de notificaciones está monitoreando tus próximos servicios preventivos en tiempo real.',
+            time: 'Ahora',
+            read: true,
+            target: 'dashboard'
+          })
+        }
+
+        setNotifications(generatedNotifs)
+
+        // Disparar Notificación Push nativa del navegador para el dispositivo activo
+        const activeUnread = generatedNotifs.filter(n => !n.read)
+        if (activeUnread.length > 0 && 'Notification' in window && Notification.permission === 'granted') {
+          const criticalNotif = activeUnread[0]
+          new Notification(criticalNotif.title, {
+            body: criticalNotif.desc,
+            icon: '/logo.png'
+          })
+        }
+
+      } catch (err) {
+        console.error('Error scanning notifications:', err)
+      }
+    }
+
+    scanNotifications()
+    const interval = setInterval(scanNotifications, 60000)
+    return () => clearInterval(interval)
+  }, [user])
 
   if (loading) {
     return (
@@ -410,16 +523,73 @@ function AppLayout() {
 
   return (
     <div className="app-layout">
-      {/* CABECERA MÓVIL EXACTA AL MOCKUP */}
+      {/* CABECERA MÓVIL EXACTA AL MOCKUP CON LOGO MEJORADO Y GRANDE */}
       <header className="mobile-header">
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/logotipo.png" alt="Mantenizapp" style={{ height: '32px', objectFit: 'contain' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <MantenizappLogo size={36} />
+          <span style={{ fontSize: '18px', fontWeight: 850, color: 'var(--text-primary)', letterSpacing: '-0.03em', fontFamily: 'inherit' }}>Mantenizapp</span>
         </div>
-        <div className="notification-bell">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0b2149" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-          <span className="notification-badge"></span>
+        <div className="notification-bell" onClick={() => setShowNotifDrawer(!showNotifDrawer)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)' }}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          {unreadCount > 0 && <span className="notification-badge"></span>}
         </div>
       </header>
+
+      {/* NOTIFICATIONS DRAWER DESPLEGABLE PREMIUM */}
+      {showNotifDrawer && (
+        <>
+          <div className="notifications-drawer-overlay" onClick={() => setShowNotifDrawer(false)} />
+          <div className="notifications-drawer">
+            <div className="notifications-header">
+              <h3>Notificaciones</h3>
+              <button 
+                className="btn btn-secondary btn-sm" 
+                onClick={() => {
+                  setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+                }}
+                style={{ fontSize: '10px', padding: '4px 8px', height: 'auto', minWidth: 'auto', margin: 0 }}
+              >
+                Marcar leídas
+              </button>
+            </div>
+            <div className="notifications-body">
+              {notifications.length === 0 ? (
+                <div className="notifications-empty">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span>No tienes alertas pendientes</span>
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div 
+                    key={n.id} 
+                    className={`notification-item ${!n.read ? 'unread' : ''}`}
+                    onClick={() => {
+                      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
+                      setCurrent(n.target)
+                      setShowNotifDrawer(false)
+                    }}
+                  >
+                    <div className="notification-icon-wrapper">
+                      {n.title.includes('Mantenimiento') ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      ) : n.title.includes('Cita') ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      )}
+                    </div>
+                    <div className="notification-info">
+                      <div className="notification-title">{n.title}</div>
+                      <div className="notification-desc">{n.desc}</div>
+                      <div className="notification-time">{n.time}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* SIDEBAR ESCRITORIO */}
       <Sidebar current={current} setCurrent={setCurrent} />
