@@ -691,6 +691,16 @@ function AppLayout() {
   const [profileChecking, setProfileChecking] = React.useState(true)
   const [showWalkthrough, setShowWalkthrough] = React.useState(false)
 
+  // Estados de navegación cruzada e interactiva (Deep Linking)
+  const [selectedClientForDetails, setSelectedClientForDetails] = React.useState(null)
+  const [selectedEquipmentIdForDetails, setSelectedEquipmentIdForDetails] = React.useState(null)
+
+  const navigateToClientDetail = (client, equipmentId = null) => {
+    setSelectedClientForDetails(client)
+    setSelectedEquipmentIdForDetails(equipmentId)
+    setCurrent('clientes')
+  }
+
   const subscribeUserToPush = async () => {
     try {
       if ('serviceWorker' in navigator) {
@@ -1004,9 +1014,23 @@ function AppLayout() {
       
       {/* CONTENIDO PRINCIPAL */}
       <main className="main-content">
-        {current === 'dashboard' && <DashboardPage setCurrent={setCurrent} />}
+        {current === 'dashboard' && (
+          <DashboardPage 
+            setCurrent={setCurrent} 
+            onNavigateToClient={navigateToClientDetail} 
+          />
+        )}
         {current === 'agenda' && <AgendaPage />}
-        {current === 'clientes' && <ClientesPage />}
+        {current === 'clientes' && (
+          <ClientesPage 
+            initialClient={selectedClientForDetails}
+            initialEquipmentId={selectedEquipmentIdForDetails}
+            onClearInitial={() => {
+              setSelectedClientForDetails(null)
+              setSelectedEquipmentIdForDetails(null)
+            }}
+          />
+        )}
         {current === 'presupuestos' && <PresupuestosPage />}
         {current === 'informes' && <InformesPage />}
         {current === 'perfil' && <PerfilPage />}

@@ -34,7 +34,7 @@ function calcularProximaFecha(fechaBase, intervalo, unidad) {
   return result.toISOString().split('T')[0]
 }
 
-export default function ClientesPage() {
+export default function ClientesPage({ initialClient, initialEquipmentId, onClearInitial }) {
   const { user } = useAuth()
   const [clientes, setClientes] = useState([])
   const [search, setSearch] = useState('')
@@ -53,8 +53,35 @@ export default function ClientesPage() {
   const [showAgendaModal, setShowAgendaModal] = useState(false)
   const [agendaForm, setAgendaForm] = useState({ equipoId: '', fecha: '', hora: '', notas: '' })
   const [savingAgenda, setSavingAgenda] = useState(false)
+  
+  // Estado para el resaltado animado del equipo buscado desde el inicio
+  const [highlightedEquipmentId, setHighlightedEquipmentId] = useState(null)
 
   useEffect(() => { fetchClientes() }, [])
+
+  // Efecto para manejar la navegación directa desde el Dashboard al equipo y cliente
+  useEffect(() => {
+    if (initialClient) {
+      fetchClientDetails(initialClient)
+      if (initialEquipmentId) {
+        setHighlightedEquipmentId(initialEquipmentId)
+        
+        // Auto scroll suave a la tarjeta del equipo
+        setTimeout(() => {
+          const el = document.getElementById(`equipment-card-${initialEquipmentId}`)
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 600)
+
+        // Limpiar el efecto de resaltado tras unos segundos
+        setTimeout(() => {
+          setHighlightedEquipmentId(null)
+        }, 4000)
+      }
+      if (onClearInitial) onClearInitial()
+    }
+  }, [initialClient, initialEquipmentId])
 
   const fetchClientes = async () => {
     setLoading(true)
@@ -303,8 +330,21 @@ export default function ClientesPage() {
                 {equipos.map(eq => {
                   const specs = parseSpecs(eq.especificaciones_equipos?.[0]?.datos)
                   const specEntries = Object.entries(specs)
+                  const isHighlighted = eq.id === highlightedEquipmentId
                   return (
-                    <div key={eq.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 20 }}>
+                    <div 
+                      key={eq.id} 
+                      id={`equipment-card-${eq.id}`}
+                      style={{ 
+                        borderBottom: '1px solid var(--border)', 
+                        paddingBottom: 20,
+                        borderRadius: isHighlighted ? '12px' : '0',
+                        padding: isHighlighted ? '16px' : '0px 0px 20px 0px',
+                        background: isHighlighted ? 'var(--accent-soft)' : 'transparent',
+                        boxShadow: isHighlighted ? '0 0 0 2px var(--accent)' : 'none',
+                        transition: 'all 0.4s ease'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                         <div>
                           <h3 style={{ fontSize: 15, fontWeight: 700 }}>{eq.nombre}</h3>

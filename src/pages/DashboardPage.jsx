@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
 
-export default function DashboardPage({ setCurrent }) {
+export default function DashboardPage({ setCurrent, onNavigateToClient }) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [clientesList, setClientesList] = useState([])
@@ -173,7 +173,7 @@ export default function DashboardPage({ setCurrent }) {
 
       const { data: equipos, error: equiposErr } = await supabase
         .from('equipos')
-        .select('*, clientes(*)')
+        .select('*, clientes(*), especificaciones_equipos(*)')
         .in('cliente_id', clientesIds)
 
       if (equiposErr) throw equiposErr
@@ -451,7 +451,13 @@ export default function DashboardPage({ setCurrent }) {
           <div className="today-tasks-slider">
             {/* Tareas de Hoy */}
             {hoyList.map(eq => (
-              <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid var(--accent)' }}>
+              <div 
+                key={eq.id} 
+                className="task-card-mock" 
+                style={{ borderLeft: '3px solid var(--accent)', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                onClick={() => onNavigateToClient && eq.clientes && onNavigateToClient(eq.clientes, eq.id)}
+                title={`Ver detalles de ${eq.nombre}`}
+              >
                 <div className="task-icon-box" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                 </div>
@@ -469,7 +475,13 @@ export default function DashboardPage({ setCurrent }) {
 
             {/* Mantenimientos Próximos de la Semana */}
             {semanaList.map(eq => (
-              <div key={eq.id} className="task-card-mock" style={{ borderLeft: '3px solid #fbbf24' }}>
+              <div 
+                key={eq.id} 
+                className="task-card-mock" 
+                style={{ borderLeft: '3px solid #fbbf24', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                onClick={() => onNavigateToClient && eq.clientes && onNavigateToClient(eq.clientes, eq.id)}
+                title={`Ver detalles de ${eq.nombre}`}
+              >
                 <div className="task-icon-box" style={{ background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
                 </div>
@@ -786,6 +798,27 @@ export default function DashboardPage({ setCurrent }) {
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       Recomendado: <span style={{ fontWeight: '600' }}>{eq.proximo_mantenimiento || '—'}</span> · <span style={{ color: hasAgenda ? '#16a34a' : 'var(--text-muted)', fontWeight: hasAgenda ? 700 : 500 }}>{agendaInfoText}</span>
                     </div>
+
+                    {/* Especificaciones técnicas del equipo en tarjeta */}
+                    {eq.especificaciones_equipos?.[0]?.datos && (() => {
+                      const specs = typeof eq.especificaciones_equipos[0].datos === 'object'
+                        ? eq.especificaciones_equipos[0].datos
+                        : (() => { try { return JSON.parse(eq.especificaciones_equipos[0].datos) } catch { return {} } })()
+                      const entries = Object.entries(specs)
+                      if (entries.length === 0) return null
+                      return (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                          {entries.map(([k, v]) => {
+                            const valStr = typeof v === 'object' && v !== null ? `${v.value} ${v.unit || ''}`.trim() : v
+                            return (
+                              <span key={k} style={{ fontSize: '9px', background: 'var(--accent-soft)', color: 'var(--accent)', padding: '2px 6px', borderRadius: '4px', fontWeight: '700', letterSpacing: '-0.01em' }}>
+                                {k}: {valStr}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
                   </div>
                   
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -823,6 +856,15 @@ export default function DashboardPage({ setCurrent }) {
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                       Agendar
+                    </button>
+
+                    <button 
+                      onClick={() => onNavigateToClient && onNavigateToClient(cliente, eq.id)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+                      title="Entrar al detalle del equipo"
+                    >
+                      Ver Detalle →
                     </button>
                   </div>
                 </div>
