@@ -22,14 +22,32 @@ CREATE POLICY "push_subscriptions_own" ON push_subscriptions
 -- Esta función hace un llamado HTTP a una Edge Function que usa el protocolo Web Push estándar.
 CREATE OR REPLACE FUNCTION notificar_tarea_urgente_push()
 RETURNS TRIGGER AS $$
+DECLARE
+  req_headers text;
+  auth_header text;
 BEGIN
   -- Solo enviar push si la tarea es de prioridad Alta y no está completada
   IF NEW.priority = 'Alta' AND NEW.completed = FALSE THEN
+    -- Intentar obtener la cabecera de autorización de forma segura en formato JSONB
+    BEGIN
+      req_headers := current_setting('request.headers', true);
+      IF req_headers IS NOT NULL AND req_headers <> '' THEN
+        auth_header := req_headers::jsonb->>'authorization';
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      auth_header := NULL;
+    END;
+
+    -- Si no viene cabecera en el contexto actual, usar la anon key del sistema por defecto
+    IF auth_header IS NULL THEN
+      auth_header := 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbXF2dWlrZWxkdXBjaHhxeGFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MTM3MzIsImV4cCI6MjA5NDQ4OTczMn0.Zjipc8m8FK8VpuRIfaMBmbzYbNYItdnKE6iDQWsYY8Y';
+    END IF;
+
     PERFORM net.http_post(
       url := 'https://igmqvuikeldupchxqxap.supabase.co/functions/v1/enviar-webpush-directo',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('request.headers')::jsonb->>'authorization'
+        'Authorization', auth_header
       ),
       body := json_build_object(
         'user_id', NEW.user_id,
