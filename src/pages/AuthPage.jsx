@@ -56,9 +56,9 @@ export default function AuthPage() {
 
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="auth-logo-icon">❄️</div>
-          <h1>TermoControl Hub</h1>
-          <p>CRM para técnicos de refrigeración</p>
+          <div className="auth-logo-icon">🔧</div>
+          <h1>Mantenizapp</h1>
+          <p>Gestión de clientes y equipos</p>
         </div>
 
         <div className="auth-tabs">

@@ -36,7 +36,7 @@ function Sidebar({ current, setCurrent, isOpen, setIsOpen }) {
       <button className="sidebar-close" onClick={() => setIsOpen(false)}>✕</button>
       
       <div className="sidebar-brand">
-        <div className="brand-text">TermoControl</div>
+        <div className="brand-text">Mantenizapp</div>
         <div className="brand-sub">SISTEMA CRM</div>
       </div>
 
@@ -99,7 +99,7 @@ function AppLayout() {
     <div className="app-layout">
       <header className="mobile-header">
         <button className="menu-toggle" onClick={() => setIsSidebarOpen(true)}>☰</button>
-        <div className="brand-text" style={{ fontSize: '14px' }}>TermoControl</div>
+        <div className="brand-text" style={{ fontSize: '14px' }}>Mantenizapp</div>
         <div style={{ width: '24px' }}></div> {/* Spacer to center text */}
       </header>
 
