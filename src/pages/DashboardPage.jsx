@@ -30,9 +30,11 @@ export default function DashboardPage({ setCurrent }) {
   const [quickMsg, setQuickMsg] = useState(null)
   const [profile, setProfile] = useState(null)
   const [todoList, setTodoList] = useState([])
+  const [todoError, setTodoError] = useState(null)
 
   const loadTodos = async () => {
     try {
+      setTodoError(null)
       const { data, error } = await supabase
         .from('todos')
         .select('*')
@@ -48,12 +50,18 @@ export default function DashboardPage({ setCurrent }) {
       }
     } catch (err) {
       console.error('Error cargando tareas:', err)
+      if (err.message && (err.message.includes('relation') || err.message.includes('does not exist') || err.code === '42P01' || err.status === 400)) {
+        setTodoError('La tabla "todos" no existe en tu base de datos de Supabase. Por favor, ejecuta el script SQL "supabase_todos.sql" en el panel SQL Editor de Supabase.')
+      } else {
+        setTodoError(err.message || 'Error al conectar con la base de datos de tareas.')
+      }
     }
   }
 
   const handleAddTodo = async (text, priority) => {
     if (!text.trim()) return
     try {
+      setTodoError(null)
       const newTodo = {
         user_id: user.id,
         text: text.trim(),
@@ -64,12 +72,15 @@ export default function DashboardPage({ setCurrent }) {
         .from('todos')
         .insert(newTodo)
       
-      if (error) {
-        console.error('Error al insertar tarea:', error)
-      }
+      if (error) throw error
       await loadTodos()
     } catch (err) {
       console.error('Error añadiendo tarea:', err)
+      if (err.message && (err.message.includes('relation') || err.message.includes('does not exist') || err.code === '42P01' || err.status === 400)) {
+        setTodoError('La tabla "todos" no existe en tu base de datos de Supabase. Por favor, ejecuta el script SQL "supabase_todos.sql" en el panel SQL Editor de Supabase.')
+      } else {
+        setTodoError(err.message || 'Error al guardar la tarea.')
+      }
     }
   }
 
@@ -77,33 +88,33 @@ export default function DashboardPage({ setCurrent }) {
     const todo = todoList.find(t => t.id === id)
     if (!todo) return
     try {
+      setTodoError(null)
       const { error } = await supabase
         .from('todos')
         .update({ completed: !todo.completed })
         .eq('id', id)
       
-      if (error) {
-        console.error('Error al actualizar tarea:', error)
-      }
+      if (error) throw error
       await loadTodos()
     } catch (err) {
       console.error('Error al alternar tarea:', err)
+      setTodoError(err.message || 'Error al actualizar el estado de la tarea.')
     }
   }
 
   const handleDeleteTodo = async (id) => {
     try {
+      setTodoError(null)
       const { error } = await supabase
         .from('todos')
         .delete()
         .eq('id', id)
       
-      if (error) {
-        console.error('Error al eliminar tarea:', error)
-      }
+      if (error) throw error
       await loadTodos()
     } catch (err) {
       console.error('Error al eliminar tarea:', err)
+      setTodoError(err.message || 'Error al eliminar la tarea.')
     }
   }
 
@@ -491,6 +502,15 @@ export default function DashboardPage({ setCurrent }) {
             <span>+ Tarea</span>
           </button>
         </div>
+
+        {todoError && (
+          <div style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#ef4444', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', lineHeight: 1.4 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>
+              <strong>Error de Base de Datos:</strong> {todoError}
+            </div>
+          </div>
+        )}
 
         {todoList.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px 0', fontSize: '13px', fontWeight: 500 }}>
