@@ -650,6 +650,21 @@ function WalkthroughTour({ onClose }) {
   )
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 function AppLayout() {
   const { user, loading } = useAuth()
   const [current, setCurrent] = React.useState('dashboard')
@@ -660,6 +675,35 @@ function AppLayout() {
   const [profileComplete, setProfileComplete] = React.useState(true)
   const [profileChecking, setProfileChecking] = React.useState(true)
   const [showWalkthrough, setShowWalkthrough] = React.useState(false)
+
+  const subscribeUserToPush = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready
+        const VAPID_PUBLIC_KEY = 'BI5xJ5tP6t7_U_gZ8q7uWqK79U_xO0lX9g1rD6U-6zK1f69_q1Z8Q_6O0X9-G0X9G0X9G0X9G0X9G0X9G0X9G0X9A'
+        
+        let subscription = await registration.pushManager.getSubscription()
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          })
+        }
+        
+        if (subscription) {
+          await supabase
+            .from('push_subscriptions')
+            .upsert({
+              user_id: user.id,
+              subscription: subscription.toJSON(),
+              updated_at: new Date()
+            }, { onConflict: 'user_id, subscription' })
+        }
+      }
+    } catch (err) {
+      console.warn('Error registrando suscripción push en Supabase:', err)
+    }
+  }
 
   React.useEffect(() => {
     if (!user) {
@@ -700,9 +744,17 @@ function AppLayout() {
   React.useEffect(() => {
     if (!user) return
 
-    // Solicitar permisos de notificación push nativos
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
+    // Solicitar permisos de notificación push nativos y registrar suscripción de fondo
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            subscribeUserToPush()
+          }
+        })
+      } else if (Notification.permission === 'granted') {
+        subscribeUserToPush()
+      }
     }
 
     const scanNotifications = async () => {
