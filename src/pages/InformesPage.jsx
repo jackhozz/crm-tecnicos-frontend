@@ -309,6 +309,7 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
     // Intentar buscar los datos del perfil del emisor para más formalidad técnica
     let techDoc = ''
     let techProf = ''
+    let emisorNombre = data.tecnico || ''
     try {
       const { data: profile } = await supabase
         .from('perfiles')
@@ -318,6 +319,10 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
       if (profile) {
         techDoc = profile.documento_identidad ? `Doc. Identidad: ${profile.documento_identidad}` : ''
         techProf = profile.grado_profesion || ''
+        const fullName = `${profile.nombre || ''} ${profile.apellido || ''}`.trim()
+        if (fullName) {
+          emisorNombre = fullName
+        }
       }
     } catch (err) {
       console.error('Error cargando perfil para el PDF:', err)
@@ -365,7 +370,7 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
         ['Equipo / Sistema', data.equipo],
         ['Marca / Modelo', `${data.marca || '—'} / ${data.modelo || '—'}`],
         ['Serial / Código', data.serial || '—'],
-        ['Técnico Responsable', data.tecnico || '—'],
+        ['Técnico Responsable', emisorNombre || '—'],
       ],
       headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8.5 },
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50, fillColor: [241, 245, 249] } },
@@ -469,7 +474,7 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
-    doc.text(data.tecnico || 'Firma del Técnico Responsable', 14, y + 5)
+    doc.text(emisorNombre || 'Firma del Técnico Responsable', 14, y + 5)
     if (techProf) {
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(100, 116, 139)
@@ -682,7 +687,7 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{inf.equipo}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {inf.fecha} · Cliente: {inf.cliente} {inf.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
+                  {inf.fecha} · Técnico: {inf.tecnico || '—'} · Cliente: {inf.cliente} {inf.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, maxWidth: 500 }} className="text-truncate">
                   {inf.diagnostico?.substring(0, 100)}...

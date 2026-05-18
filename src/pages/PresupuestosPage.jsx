@@ -218,6 +218,7 @@ export default function PresupuestosPage() {
     let techProf = ''
     let techTelf = ''
     let techMail = ''
+    let emisorNombre = data.nombre_emisor || ''
     try {
       const { data: profile } = await supabase
         .from('perfiles')
@@ -229,6 +230,10 @@ export default function PresupuestosPage() {
         techProf = profile.grado_profesion || ''
         techTelf = profile.telefono ? `Telf: ${profile.telefono}` : ''
         techMail = profile.correo_profesional ? `Email: ${profile.correo_profesional}` : ''
+        const fullName = `${profile.nombre || ''} ${profile.apellido || ''}`.trim()
+        if (fullName) {
+          emisorNombre = fullName
+        }
       }
     } catch (err) {
       console.error('Error cargando perfil emisor para el PDF:', err)
@@ -282,7 +287,7 @@ export default function PresupuestosPage() {
     doc.setTextColor(30, 41, 59)
     
     // Técnico Emisor details
-    doc.text(`Prestador: ${data.nombre_emisor || '—'}`, 20, y + 14)
+    doc.text(`Prestador: ${emisorNombre || '—'}`, 20, y + 14)
     if (techProf) doc.text(`Grado/Profesión: ${techProf}`, 20, y + 20)
     if (techDoc) doc.text(techDoc, 20, y + 26)
     
@@ -363,7 +368,7 @@ export default function PresupuestosPage() {
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
-    doc.text(data.nombre_emisor || 'Firma del Técnico Autorizado', 14, sigY + 4)
+    doc.text(emisorNombre || 'Firma del Técnico Autorizado', 14, sigY + 4)
     if (techProf) {
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(100, 116, 139)
@@ -548,7 +553,7 @@ export default function PresupuestosPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>{p.titulo}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {p.fecha} · Para: {p.nombre_receptor} {p.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
+                  {p.fecha} · Emisor: {p.nombre_emisor || '—'} · Para: {p.nombre_receptor} {p.clientes && <span style={{ marginLeft: 6, padding: '2px 6px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Directorio</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
