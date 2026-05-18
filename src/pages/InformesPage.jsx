@@ -569,7 +569,7 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
             <FieldInput label="Cliente" placeholder="Nombre del cliente" value={form.cliente} onChange={e => setField('cliente', e.target.value)} required />
             <FieldInput label="Técnico responsable" placeholder="Tu nombre" value={form.tecnico} onChange={e => setField('tecnico', e.target.value)} />
             <FieldInput label="Fecha" placeholder="" value={form.fecha} onChange={e => setField('fecha', e.target.value)} required />
-            <div />
+            <div className="hide-mobile" />
           </div>
 
           <div className="grid-4" style={{ marginTop: 16 }}>
@@ -589,16 +589,15 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.4' }}>
             Escribe una idea rápida sobre la avería o las tareas que realizaste, luego presiona el botón respectivo para que la IA genere un párrafo formal y sumamente conciso de inmediato.
           </p>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div className="ai-panel-container">
             <textarea 
-              className="form-textarea" 
+              className="form-textarea ai-panel-textarea" 
               placeholder="Ej: Mantenimiento preventivo a aire split de 12k btu, tenía suciedad y capacitor bajo..." 
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
               rows={2}
-              style={{ flex: 1, minWidth: '240px', minHeight: '80px' }}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '180px' }}>
+            <div className="ai-panel-actions">
               <button 
                 type="button"
                 className="btn btn-primary" 

@@ -426,7 +426,7 @@ export default function PresupuestosPage() {
             <label className="form-label">Fecha *</label>
             <input type="date" className="form-input" value={form.fecha} onChange={e => setField('fecha', e.target.value)} />
           </div>
-          <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
+          <div className="form-group col-span-2" style={{ margin: 0 }}>
             <label className="form-label">Título del presupuesto *</label>
             <input className="form-input" placeholder="Ej: Mantenimiento A/C Samsung 12000 BTU" value={form.titulo} onChange={e => setField('titulo', e.target.value)} />
           </div>
@@ -443,7 +443,7 @@ export default function PresupuestosPage() {
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Describe brevemente lo que hiciste y la IA redacta el texto formal</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+          <div className="responsive-flex-row" style={{ marginBottom: 12 }}>
             <input
               className="form-input"
               placeholder="Ej: Cambié capacitor, limpié serpentines, recargué 1kg R410A..."

@@ -1370,3 +1370,144 @@ body,
   width: 20px;
   border-radius: 4px;
 }
+
+/* IMPROVED RESPONSIVE INPUTS FOR BUDGET ITEMS TABLE */
+.items-table input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.items-table input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* PREMIUM SPACIOUS TOTAL BUDGET SUMMARY */
+.total-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.total-box {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 24px;
+  text-align: right;
+  min-width: 220px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.01);
+}
+
+.total-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.total-value {
+  font-size: 24px;
+  font-weight: 850;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+
+/* RESPONSIVE COL-SPAN-2 FOR FORM GRIDS */
+.col-span-2 {
+  grid-column: span 2;
+}
+
+/* RESPONSIVE UTILITIES FOR MOBILE PHONES */
+.hide-mobile {
+  display: block;
+}
+
+.responsive-flex-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-ai {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px var(--accent-soft) !important;
+}
+
+.btn-ai:hover {
+  background: var(--accent-hover) !important;
+}
+
+/* RESPONSIVE AI PANEL WRAPPER */
+.ai-panel-container {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.ai-panel-textarea {
+  flex: 1;
+  min-width: 240px;
+  min-height: 80px;
+}
+
+.ai-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+}
+
+@media (max-width: 640px) {
+  .col-span-2 {
+    grid-column: span 1 !important;
+  }
+  .hide-mobile {
+    display: none !important;
+  }
+  .responsive-flex-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .responsive-flex-row button,
+  .responsive-flex-row input,
+  .responsive-flex-row textarea {
+    width: 100% !important;
+  }
+  .total-row {
+    justify-content: stretch;
+  }
+  .total-box {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 580px) {
+  .ai-panel-container {
+    flex-direction: column;
+  }
+  .ai-panel-textarea {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+  .ai-panel-actions {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+}
