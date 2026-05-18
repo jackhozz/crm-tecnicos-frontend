@@ -22,6 +22,21 @@ const defaultForm = () => ({
   tecnico: '',
 })
 
+// Sub-componentes declarados fuera de InformesPage para evitar la re-creación en cada renderizado (pérdida de foco del teclado)
+const FieldInput = ({ label, placeholder, required, value, onChange }) => (
+  <div className="form-group">
+    <label className="form-label">{label}{required ? ' *' : ''}</label>
+    <input className="form-input" placeholder={placeholder} value={value} onChange={onChange} />
+  </div>
+)
+
+const FieldTextarea = ({ label, placeholder, rows, required, value, onChange }) => (
+  <div className="form-group">
+    <label className="form-label">{label}{required ? ' *' : ''}</label>
+    <textarea className="form-textarea" placeholder={placeholder} rows={rows || 3} value={value} onChange={onChange} />
+  </div>
+)
+
 export default function InformesPage() {
   const { user } = useAuth()
   const [form, setForm] = useState(defaultForm())
@@ -473,20 +488,6 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
     doc.save(`informe_${data.cliente?.replace(/\s+/g, '_') || 'informe'}_${data.fecha}.pdf`)
   }
 
-  const FieldInput = ({ label, field, placeholder, required }) => (
-    <div className="form-group">
-      <label className="form-label">{label}{required ? ' *' : ''}</label>
-      <input className="form-input" placeholder={placeholder} value={form[field]} onChange={e => setField(field, e.target.value)} />
-    </div>
-  )
-
-  const FieldTextarea = ({ label, field, placeholder, rows, required }) => (
-    <div className="form-group">
-      <label className="form-label">{label}{required ? ' *' : ''}</label>
-      <textarea className="form-textarea" placeholder={placeholder} rows={rows || 3} value={form[field]} onChange={e => setField(field, e.target.value)} />
-    </div>
-  )
-
   if (view === 'new') {
     return (
       <div>
@@ -560,17 +561,17 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
           </div>
 
           <div className="grid-2">
-            <FieldInput label="Cliente" field="cliente" placeholder="Nombre del cliente" required />
-            <FieldInput label="Técnico responsable" field="tecnico" placeholder="Tu nombre" />
-            <FieldInput label="Fecha" field="fecha" placeholder="" required />
+            <FieldInput label="Cliente" placeholder="Nombre del cliente" value={form.cliente} onChange={e => setField('cliente', e.target.value)} required />
+            <FieldInput label="Técnico responsable" placeholder="Tu nombre" value={form.tecnico} onChange={e => setField('tecnico', e.target.value)} />
+            <FieldInput label="Fecha" placeholder="" value={form.fecha} onChange={e => setField('fecha', e.target.value)} required />
             <div />
           </div>
 
           <div className="grid-4" style={{ marginTop: 16 }}>
-            <FieldInput label="Equipo / Sistema" field="equipo" placeholder="A/C Split, Cava, etc." required />
-            <FieldInput label="Marca" field="marca" placeholder="Samsung, Carrier..." />
-            <FieldInput label="Modelo" field="modelo" placeholder="Modelo del equipo" />
-            <FieldInput label="Serial / N° de serie" field="serial" placeholder="123456789" />
+            <FieldInput label="Equipo / Sistema" placeholder="A/C Split, Cava, etc." value={form.equipo} onChange={e => setField('equipo', e.target.value)} required />
+            <FieldInput label="Marca" placeholder="Samsung, Carrier..." value={form.marca} onChange={e => setField('marca', e.target.value)} />
+            <FieldInput label="Modelo" placeholder="Modelo del equipo" value={form.modelo} onChange={e => setField('modelo', e.target.value)} />
+            <FieldInput label="Serial / N° de serie" placeholder="123456789" value={form.serial} onChange={e => setField('serial', e.target.value)} />
           </div>
         </div>
 
@@ -637,10 +638,10 @@ Retorna ÚNICAMENTE el objeto JSON válido de manera estricta, sin bloques de c�
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             Detalles del servicio
           </div>
-          <FieldTextarea label="Diagnóstico" field="diagnostico" placeholder="Falla detectada, causa raíz..." rows={3} required />
-          <FieldTextarea label="Trabajos realizados" field="trabajosRealizados" placeholder="Describe paso a paso los trabajos ejecutados..." rows={4} required />
-          <FieldTextarea label="Materiales y repuestos usados" field="materialesUsados" placeholder="Lista de materiales, piezas sustituidas..." rows={3} />
-          <FieldTextarea label="Observaciones / Recomendaciones" field="observaciones" placeholder="Sugerencias para el cliente, próximo mantenimiento..." rows={3} />
+          <FieldTextarea label="Diagnóstico" placeholder="Falla detectada, causa raíz..." value={form.diagnostico} onChange={e => setField('diagnostico', e.target.value)} rows={3} required />
+          <FieldTextarea label="Trabajos realizados" placeholder="Describe paso a paso los trabajos ejecutados..." value={form.trabajosRealizados} onChange={e => setField('trabajosRealizados', e.target.value)} rows={4} required />
+          <FieldTextarea label="Materiales y repuestos usados" placeholder="Lista de materiales, piezas sustituidas..." value={form.materialesUsados} onChange={e => setField('materialesUsados', e.target.value)} rows={3} />
+          <FieldTextarea label="Observaciones / Recomendaciones" placeholder="Sugerencias para el cliente, próximo mantenimiento..." value={form.observaciones} onChange={e => setField('observaciones', e.target.value)} rows={3} />
         </div>
 
         <div style={{ display: 'flex', gap: 12 }}>
